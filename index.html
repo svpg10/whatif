@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WHAT IF? — Future Decision Simulator</title>
+    <meta name="description" content="Don't just imagine the future. Simulate it before you build it.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Oswald:wght@500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css?v=5.1">
+    <link rel="icon" type="image/png" href="assets/logo.png">
+    <style id="nav-drawer-critical-css">
+        /* Guaranteed styling for 3 horizontal stripes menu button */
+        .nav-hamburger-btn {
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            width: 42px !important;
+            min-width: 42px !important;
+            height: 38px !important;
+            padding: 0 !important;
+            background: rgba(255, 255, 255, 0.05) !important;
+            border: 1.5px solid rgba(255, 43, 52, 0.45) !important;
+            border-radius: 8px !important;
+            cursor: pointer !important;
+            outline: none !important;
+            box-shadow: 0 0 12px rgba(255, 43, 52, 0.2) !important;
+            transition: all 0.2s ease !important;
+        }
+        .nav-hamburger-btn:hover {
+            background: rgba(255, 43, 52, 0.22) !important;
+            border-color: #E62429 !important;
+            box-shadow: 0 0 18px rgba(255, 43, 52, 0.6) !important;
+            transform: scale(1.05) !important;
+        }
+        .hamburger-icon-svg {
+            display: block !important;
+            width: 22px !important;
+            height: 16px !important;
+            pointer-events: none !important;
+        }
+        .hamburger-icon-svg rect {
+            fill: #FFFFFF !important;
+            transition: fill 0.2s ease !important;
+        }
+        .nav-hamburger-btn:hover .hamburger-icon-svg rect {
+            fill: #FF4D55 !important;
+        }
+        /* Guaranteed drawer positioning */
+        #nav-drawer.nav-drawer {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            z-index: 999999 !important;
+        }
+        #nav-drawer[hidden] {
+            display: none !important;
+        }
+        .nav-drawer-backdrop {
+            position: absolute !important;
+            inset: 0 !important;
+            background: rgba(5, 6, 15, 0.85) !important;
+            backdrop-filter: blur(10px) !important;
+            -webkit-backdrop-filter: blur(10px) !important;
+        }
+        .nav-drawer-panel {
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
+            bottom: 0 !important;
+            width: min(440px, 92vw) !important;
+            height: 100% !important;
+            background: #090B14 !important;
+            border-right: 2px solid rgba(230, 36, 41, 0.5) !important;
+            box-shadow: 20px 0 60px rgba(0, 0, 0, 0.95), 0 0 30px rgba(230, 36, 41, 0.3) !important;
+            padding: 26px !important;
+            overflow-y: auto !important;
+            box-sizing: border-box !important;
+            display: flex !important;
+            flex-direction: column !important;
+            transform: translateX(-100%) !important;
+            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+        }
+        #nav-drawer.open .nav-drawer-panel {
+            transform: translateX(0) !important;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ====== INTRO OVERLAY ====== -->
+    <div id="intro-overlay" class="intro-overlay" role="dialog" aria-label="Introduction">
+        <div class="intro-cards" id="intro-cards">
+            <div class="intro-card" data-index="0">What if we cut prices?</div>
+            <div class="intro-card" data-index="1">What if the strait closes?</div>
+            <div class="intro-card" data-index="2">What if I take the job?</div>
+            <div class="intro-card" data-index="3">What if we build 500 stations?</div>
+            <div class="intro-card" data-index="4">What if the rains fail?</div>
+            <div class="intro-card" data-index="5">What if...?</div>
+        </div>
+        <div class="intro-flash" id="intro-flash"></div>
+        <div class="intro-logo" id="intro-logo">
+            <img src="assets/logo.png" alt="WHAT IF...?" class="intro-logo-img">
+        </div>
+        <p class="intro-tagline" id="intro-tagline">Simulate it before you build it.</p>
+        <button class="intro-skip" id="intro-skip" aria-label="Skip introduction">Skip ▸</button>
+    </div>
+
+    <!-- ====== NAVIGATION WITH 3-LINE MENU ====== -->
+    <nav id="navbar" class="navbar" style="display: none;" role="navigation" aria-label="Main navigation">
+        <div class="nav-left">
+            <button class="nav-hamburger-btn" id="nav-menu-toggle" aria-label="Open Navigation Directory" aria-expanded="false" aria-controls="nav-drawer" title="Menu">
+                <svg class="hamburger-icon-svg" width="22" height="16" viewBox="0 0 22 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <rect y="0" width="22" height="2.5" rx="1.25" fill="#FFFFFF"/>
+                    <rect y="6.75" width="22" height="2.5" rx="1.25" fill="#FFFFFF"/>
+                    <rect y="13.5" width="22" height="2.5" rx="1.25" fill="#FFFFFF"/>
+                </svg>
+            </button>
+            <span class="nav-active-pill" id="nav-active-pill">// HOME</span>
+        </div>
+        <a href="#home" class="nav-brand" data-nav="home" aria-label="WhatIf home">
+            <img src="assets/logo.png" alt="WhatIf" class="nav-logo-img" height="26" width="83" style="height: 26px !important; max-height: 26px !important; width: auto !important; max-width: 90px !important; display: block; object-fit: contain;">
+        </a>
+    </nav>
+
+    <!-- ====== NAVIGATION DIRECTORY DRAWER ====== -->
+    <aside id="nav-drawer" class="nav-drawer" role="dialog" aria-modal="true" aria-label="Site Navigation Directory" style="display: none;">
+        <div class="nav-drawer-backdrop" id="nav-drawer-backdrop"></div>
+        <div class="nav-drawer-panel">
+            <div class="nav-drawer-header">
+                <div class="nav-drawer-title-box">
+                    <span class="nav-drawer-kicker">SYSTEM DIRECTORY</span>
+                    <h2 class="nav-drawer-title">Navigation Console</h2>
+                </div>
+                <button class="nav-drawer-close-btn" id="nav-drawer-close" aria-label="Close Navigation">&times;</button>
+            </div>
+
+            <!-- Single User / System Recognition Terminal Status Card -->
+            <div class="drawer-system-card">
+                <div class="drawer-sys-icon">💻</div>
+                <div class="drawer-sys-info">
+                    <span class="drawer-sys-label">LOCAL TERMINAL SYSTEM ID</span>
+                    <span class="drawer-sys-id" id="drawer-sys-node-id">NEXUS-NODE-000000</span>
+                    <span class="drawer-sys-status">● AUTHORIZED SINGLE-USER OPERATOR</span>
+                </div>
+            </div>
+
+            <nav class="drawer-nav-list" aria-label="Pages">
+                <a href="#home" data-nav="home" class="drawer-nav-item active">
+                    <span class="drawer-item-icon">⚡</span>
+                    <div class="drawer-item-text">
+                        <span class="drawer-item-title">Nexus Home</span>
+                        <span class="drawer-item-desc">Initiate new scenario &amp; decision multiverse</span>
+                    </div>
+                    <span class="drawer-item-arrow">→</span>
+                </a>
+
+                <a href="#history" data-nav="history" class="drawer-nav-item">
+                    <span class="drawer-item-icon">📜</span>
+                    <div class="drawer-item-text">
+                        <span class="drawer-item-title">Chat &amp; Decision History</span>
+                        <span class="drawer-item-desc">Past simulations remembered on this system</span>
+                    </div>
+                    <span class="drawer-item-arrow">→</span>
+                </a>
+
+                <a href="#how" data-nav="how" class="drawer-nav-item">
+                    <span class="drawer-item-icon">⚙️</span>
+                    <div class="drawer-item-text">
+                        <span class="drawer-item-title">How It Works</span>
+                        <span class="drawer-item-desc">Stanford d.school 5-stage simulation framework</span>
+                    </div>
+                    <span class="drawer-item-arrow">→</span>
+                </a>
+
+                <a href="#model" data-nav="model" class="drawer-nav-item">
+                    <span class="drawer-item-icon">🔬</span>
+                    <div class="drawer-item-text">
+                        <span class="drawer-item-title">About the Model</span>
+                        <span class="drawer-item-desc">Rule-based equations, KPIs &amp; assumptions</span>
+                    </div>
+                    <span class="drawer-item-arrow">→</span>
+                </a>
+
+                <a href="#about" data-nav="about" class="drawer-nav-item">
+                    <span class="drawer-item-icon">🌐</span>
+                    <div class="drawer-item-text">
+                        <span class="drawer-item-title">About What If?</span>
+                        <span class="drawer-item-desc">Mission, methodology &amp; multi-timeline foresight</span>
+                    </div>
+                    <span class="drawer-item-arrow">→</span>
+                </a>
+            </nav>
+
+            <div class="drawer-legal-section">
+                <span class="drawer-legal-kicker">GOVERNANCE &amp; TRANSPARENCY</span>
+                <div class="drawer-legal-links">
+                    <a href="privacy.html" class="drawer-legal-link" target="_blank">
+                        <span>Privacy Policy</span>
+                        <span class="ext-icon">↗</span>
+                    </a>
+                    <a href="ai-disclaimer.html" class="drawer-legal-link" target="_blank">
+                        <span>AI Simulation Disclaimer</span>
+                        <span class="ext-icon">↗</span>
+                    </a>
+                </div>
+            </div>
+
+            <div class="drawer-footer">
+                <span class="drawer-tagline">WHAT IF? DECISION ENGINE · SINGLE USER TERMINAL</span>
+            </div>
+        </div>
+    </aside>
+
+    <!-- ====== MAIN CONTENT ====== -->
+    <main id="app">
+
+        <!-- HOME / NEXUS INPUT -->
+        <section id="page-home" class="page active">
+            <div class="page-inner home-page">
+                <h1 class="display-heading">Every decision is a <span class="text-gold">Nexus Event</span>.</h1>
+                <p class="subheading">Describe a choice. We'll branch the timeline and show you what happens next.</p>
+                <div class="nexus-input-wrap">
+                    <input type="text" id="decision-input" class="nexus-input"
+                           placeholder="What decision are you considering?"
+                           aria-label="Enter your decision" autocomplete="off">
+                </div>
+
+                <!-- Unique Multiverse Scenario Deck (4 Distinct Sectors) -->
+                <div class="scenario-deck-wrapper">
+                    <div class="scenario-deck-header">
+                        <div class="deck-title-line">
+                            <span class="deck-pulse-dot"></span>
+                            <span class="deck-title">CHOOSE A PRE-CALCULATED NEXUS TIMELINE</span>
+                        </div>
+                        <span class="deck-badge">4 SCENARIO SECTORS</span>
+                    </div>
+
+                    <div class="preset-chips scenario-matrix" id="preset-chips">
+                        <!-- SECTOR 01: THE STRAIT CLOSES -->
+                        <button class="chip scenario-card sector-crimson" data-preset="hormuz" aria-label="Select scenario: The Strait Closes">
+                            <div class="scenario-top">
+                                <span class="sector-tag">SECTOR 01 · GEOPOLITICS</span>
+                                <span class="sector-shape">●</span>
+                            </div>
+                            <div class="scenario-icon-wrap icon-crimson">
+                                <span class="chip-icon">🛢️</span>
+                            </div>
+                            <h3 class="chip-label scenario-title">The Strait Closes</h3>
+                            <p class="chip-desc scenario-desc">India responds to a 30-day oil-chokepoint disruption.</p>
+                            <div class="scenario-footer">
+                                <span class="scenario-metric">Supply Shock · Strategic Reserves</span>
+                                <span class="scenario-arrow">SELECT ▸</span>
+                            </div>
+                        </button>
+
+                        <!-- SECTOR 02: 500 CHARGERS -->
+                        <button class="chip scenario-card sector-cyan" data-preset="ev" aria-label="Select scenario: 500 Chargers">
+                            <div class="scenario-top">
+                                <span class="sector-tag">SECTOR 02 · ENERGY INFRA</span>
+                                <span class="sector-shape">◆</span>
+                            </div>
+                            <div class="scenario-icon-wrap icon-cyan">
+                                <span class="chip-icon">⚡</span>
+                            </div>
+                            <h3 class="chip-label scenario-title">500 Chargers</h3>
+                            <p class="chip-desc scenario-desc">A city scales its EV charging network across urban grids.</p>
+                            <div class="scenario-footer">
+                                <span class="scenario-metric">Grid Load · Fleet Adoption</span>
+                                <span class="scenario-arrow">SELECT ▸</span>
+                            </div>
+                        </button>
+
+                        <!-- SECTOR 03: THE 4-DAY WEEK -->
+                        <button class="chip scenario-card sector-violet" data-preset="fourday" aria-label="Select scenario: The 4-Day Week">
+                            <div class="scenario-top">
+                                <span class="sector-tag">SECTOR 03 · WORKFORCE</span>
+                                <span class="sector-shape">▲</span>
+                            </div>
+                            <div class="scenario-icon-wrap icon-violet">
+                                <span class="chip-icon">📅</span>
+                            </div>
+                            <h3 class="chip-label scenario-title">The 4-Day Week</h3>
+                            <p class="chip-desc scenario-desc">A company shifts to compressed schedules & high output.</p>
+                            <div class="scenario-footer">
+                                <span class="scenario-metric">Productivity · Retention</span>
+                                <span class="scenario-arrow">SELECT ▸</span>
+                            </div>
+                        </button>
+
+                        <!-- SECTOR 04: NO CARS DOWNTOWN -->
+                        <button class="chip scenario-card sector-gold" data-preset="carban" aria-label="Select scenario: No Cars Downtown">
+                            <div class="scenario-top">
+                                <span class="sector-tag">SECTOR 04 · CIVIC TRANSIT</span>
+                                <span class="sector-shape">★</span>
+                            </div>
+                            <div class="scenario-icon-wrap icon-gold">
+                                <span class="chip-icon">🚗</span>
+                            </div>
+                            <h3 class="chip-label scenario-title">No Cars Downtown</h3>
+                            <p class="chip-desc scenario-desc">A city bans cars from the core to reclaim public space.</p>
+                            <div class="scenario-footer">
+                                <span class="scenario-metric">Air Quality · Local Commerce</span>
+                                <span class="scenario-arrow">SELECT ▸</span>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+
+                <button id="btn-open-multiverse" class="btn-primary btn-lg" disabled>
+                    Open the Multiverse ▸
+                </button>
+
+                <!-- Prominent Legal & Governance Bar -->
+                <div class="home-disclosures-bar">
+                    <div class="disclosures-header">
+                        <span class="disclosures-badge">LEGAL & GOVERNANCE</span>
+                        <span>Illustrative decision support models. Not forecasts.</span>
+                    </div>
+                    <div class="disclosures-links">
+                        <a href="privacy.html" class="disclosure-pill" title="Read the WhatIf Privacy Policy">
+                            <span class="pill-icon">🔒</span>
+                            <span>Privacy Policy</span>
+                            <span class="pill-arrow">↗</span>
+                        </a>
+                        <a href="ai-disclaimer.html" class="disclosure-pill" title="Read the AI Simulation Disclaimer">
+                            <span class="pill-icon">⚡</span>
+                            <span>AI Simulation Disclaimer</span>
+                            <span class="pill-arrow">↗</span>
+                        </a>
+                        <button type="button" id="btn-trigger-consent" class="disclosure-pill pill-consent" title="Review Pre-Simulation Consent Acknowledgement">
+                            <span class="pill-icon">📋</span>
+                            <span>Review Pre-Simulation Consent</span>
+                            <span class="pill-arrow">▸</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- WATCHER ANALYSIS -->
+        <section id="page-analysis" class="page">
+            <div class="page-inner analysis-page">
+                <div class="analysis-header">
+                    <p class="analysis-label">The Watcher is observing.</p>
+                    <h1 class="analysis-decision" id="analysis-decision"></h1>
+                </div>
+                <div class="analysis-columns">
+                    <div class="analysis-col" id="col-empathize">
+                        <h2 class="col-title"><span class="col-icon">👥</span> Who is affected</h2>
+                        <ul class="stakeholder-list" id="stakeholder-list"></ul>
+                    </div>
+                    <div class="analysis-col" id="col-define">
+                        <h2 class="col-title"><span class="col-icon">🎯</span> What is at stake</h2>
+                        <p class="problem-statement" id="problem-statement"></p>
+                    </div>
+                    <div class="analysis-col" id="col-ideate">
+                        <h2 class="col-title"><span class="col-icon">🔀</span> Possible timelines</h2>
+                        <div class="branch-cards-list" id="branch-cards"></div>
+                    </div>
+                </div>
+                <div class="slider-section">
+                    <h2 class="slider-section-title">Variables</h2>
+                    <div class="sliders-grid" id="sliders-grid"></div>
+                </div>
+                <button id="btn-branch" class="btn-primary btn-lg">Branch the timeline ▸</button>
+            </div>
+        </section>
+
+        <!-- MULTIVERSE VIEW -->
+        <section id="page-multiverse" class="page">
+            <div class="page-inner multiverse-page">
+                <h1 class="display-heading">One decision. <span class="text-cyan">Three timelines</span>.</h1>
+                <div class="multiverse-container" id="multiverse-container">
+                    <svg id="multiverse-svg" class="multiverse-svg" viewBox="0 0 800 500" aria-label="Multiverse timeline tree"></svg>
+                </div>
+                <div class="multiverse-branches" id="multiverse-branches"></div>
+                <p class="hint-text">Select a timeline to enter it.</p>
+                <button id="btn-simulate-all" class="btn-primary btn-lg">Simulate all timelines ▸</button>
+            </div>
+        </section>
+
+        <!-- SIMULATION DASHBOARD -->
+        <section id="page-simulate" class="page">
+            <div class="page-inner simulate-page">
+                <h1 class="simulate-title" id="simulate-title">Timeline</h1>
+                <div class="branch-tabs" id="branch-tabs" role="tablist">
+                    <button class="branch-tab active" data-branch="A" role="tab" aria-selected="true">
+                        <span class="branch-shape shape-a">●</span> A
+                    </button>
+                    <button class="branch-tab" data-branch="B" role="tab" aria-selected="false">
+                        <span class="branch-shape shape-b">◆</span> B
+                    </button>
+                    <button class="branch-tab" data-branch="C" role="tab" aria-selected="false">
+                        <span class="branch-shape shape-c">▲</span> C
+                    </button>
+                    <button class="branch-tab" data-branch="all" role="tab" aria-selected="false">All</button>
+                </div>
+                <div class="dashboard-grid">
+                    <div class="kpi-panel" id="kpi-panel">
+                        <div class="kpi-card" data-kpi="fuelPrice">
+                            <span class="kpi-label">Fuel price change</span>
+                            <span class="kpi-value" id="kpi-fuel">—</span>
+                            <span class="kpi-unit">%</span>
+                        </div>
+                        <div class="kpi-card" data-kpi="buffer">
+                            <span class="kpi-label">Supply buffer</span>
+                            <span class="kpi-value" id="kpi-buffer">—</span>
+                            <span class="kpi-unit">days</span>
+                        </div>
+                        <div class="kpi-card" data-kpi="fiscal">
+                            <span class="kpi-label">Fiscal cost</span>
+                            <span class="kpi-value" id="kpi-fiscal">—</span>
+                            <span class="kpi-unit">₹ Cr</span>
+                        </div>
+                        <div class="kpi-card" data-kpi="inflation">
+                            <span class="kpi-label">Inflation impact</span>
+                            <span class="kpi-value" id="kpi-inflation">—</span>
+                            <span class="kpi-unit">% pts</span>
+                        </div>
+                        <div class="kpi-card" data-kpi="gdp">
+                            <span class="kpi-label">GDP impact</span>
+                            <span class="kpi-value" id="kpi-gdp">—</span>
+                            <span class="kpi-unit">%</span>
+                        </div>
+                        <div class="kpi-card" data-kpi="publicRisk">
+                            <span class="kpi-label">Public risk</span>
+                            <span class="kpi-value" id="kpi-risk">—</span>
+                            <span class="kpi-unit">/100</span>
+                        </div>
+                    </div>
+                    <div class="chart-panel">
+                        <div class="chart-container">
+                            <h3 class="chart-title">Simulation · Day 0–90</h3>
+                            <canvas id="line-chart" width="700" height="350"></canvas>
+                        </div>
+                        <div class="chart-container chart-radar-container">
+                            <h3 class="chart-title">Impact Dimensions</h3>
+                            <canvas id="radar-chart" width="350" height="350"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="watcher-panel" id="watcher-panel">
+                    <div class="watcher-icon">👁</div>
+                    <p class="watcher-text" id="watcher-text">The Watcher is looking ahead...</p>
+                </div>
+                <div class="simulate-actions">
+                    <button id="btn-assumptions" class="btn-secondary">View assumptions ▸</button>
+                    <button id="btn-compare" class="btn-primary btn-lg">Compare timelines ▸</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- COMPARE & DECIDE -->
+        <section id="page-compare" class="page">
+            <div class="page-inner compare-page">
+                <h1 class="display-heading">Choose your <span class="text-gold">Sacred Timeline</span>.</h1>
+                <div class="priorities-section">
+                    <h2 class="priorities-title">Your priorities</h2>
+                    <div class="priorities-grid" id="priorities-grid">
+                        <div class="priority-slider-wrap">
+                            <label class="priority-label">Lower cost</label>
+                            <input type="range" class="priority-slider" data-priority="cost"
+                                   min="0" max="100" value="50" aria-label="Cost priority">
+                            <span class="priority-value">50</span>
+                        </div>
+                        <div class="priority-slider-wrap">
+                            <label class="priority-label">Lower risk</label>
+                            <input type="range" class="priority-slider" data-priority="risk"
+                                   min="0" max="100" value="50" aria-label="Risk priority">
+                            <span class="priority-value">50</span>
+                        </div>
+                        <div class="priority-slider-wrap">
+                            <label class="priority-label">Faster recovery</label>
+                            <input type="range" class="priority-slider" data-priority="speed"
+                                   min="0" max="100" value="50" aria-label="Speed priority">
+                            <span class="priority-value">50</span>
+                        </div>
+                        <div class="priority-slider-wrap">
+                            <label class="priority-label">Public impact</label>
+                            <input type="range" class="priority-slider" data-priority="impact"
+                                   min="0" max="100" value="50" aria-label="Impact priority">
+                            <span class="priority-value">50</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="compare-table-wrap">
+                    <table class="compare-table" id="compare-table">
+                        <thead>
+                            <tr>
+                                <th></th>
+                                <th class="branch-col-a"><span class="branch-shape shape-a">●</span> A</th>
+                                <th class="branch-col-b"><span class="branch-shape shape-b">◆</span> B</th>
+                                <th class="branch-col-c"><span class="branch-shape shape-c">▲</span> C</th>
+                            </tr>
+                        </thead>
+                        <tbody id="compare-tbody"></tbody>
+                    </table>
+                </div>
+                <div class="verdict-card" id="verdict-card">
+                    <h2 class="verdict-title">Verdict</h2>
+                    <p class="verdict-text" id="verdict-text"></p>
+                </div>
+                <div class="compare-details" id="compare-details"></div>
+                <div class="compare-actions">
+                    <button id="btn-export" class="btn-secondary">Export summary</button>
+                    <button id="btn-restart" class="btn-primary">Try another decision ▸</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- HOW IT WORKS -->
+        <section id="page-how" class="page">
+            <div class="page-inner how-page">
+                <div class="how-header">
+                    <span class="section-tag text-cyan">SIMULATION ARCHITECTURE</span>
+                    <h1 class="display-heading">From Question to Decision, <span class="text-cyan">in Six Steps</span>.</h1>
+                    <p class="subheading">How our deterministic multiverse engine turns real-world uncertainty into decisive clarity.</p>
+                </div>
+
+                <div class="pipeline-container">
+                    <!-- Phase 1: Exploration & Multiverse Branching -->
+                    <div class="pipeline-phase">
+                        <div class="pipeline-phase-label">
+                            <span class="phase-indicator phase-1">PHASE 1</span>
+                            <span class="phase-title">EXPLORATION & MULTIVERSE BRANCHING</span>
+                        </div>
+                        <div class="pipeline-row">
+                            <div class="pipeline-step">
+                                <div class="step-meta">
+                                    <span class="step-number">01</span>
+                                    <span class="step-dt-badge dt-badge-empathize">EMPATHIZE</span>
+                                </div>
+                                <h3 class="step-title">Input</h3>
+                                <p class="step-desc">Name the Nexus Event and map primary stakeholders affected.</p>
+                            </div>
+                            <div class="pipeline-arrow" aria-hidden="true">→</div>
+                            <div class="pipeline-step">
+                                <div class="step-meta">
+                                    <span class="step-number">02</span>
+                                    <span class="step-dt-badge dt-badge-define">DEFINE</span>
+                                </div>
+                                <h3 class="step-title">Scenario Creation</h3>
+                                <p class="step-desc">Formulate the core challenge and branch the timeline.</p>
+                            </div>
+                            <div class="pipeline-arrow" aria-hidden="true">→</div>
+                            <div class="pipeline-step">
+                                <div class="step-meta">
+                                    <span class="step-number">03</span>
+                                    <span class="step-dt-badge dt-badge-ideate">IDEATE</span>
+                                </div>
+                                <h3 class="step-title">Simulation</h3>
+                                <p class="step-desc">Run three divergent timelines forward across 90 simulated days.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Phase 2: Evaluation & Execution -->
+                    <div class="pipeline-phase">
+                        <div class="pipeline-phase-label">
+                            <span class="phase-indicator phase-2">PHASE 2</span>
+                            <span class="phase-title">IMPACT ANALYSIS & FINAL VERDICT</span>
+                        </div>
+                        <div class="pipeline-row">
+                            <div class="pipeline-step">
+                                <div class="step-meta">
+                                    <span class="step-number">04</span>
+                                    <span class="step-dt-badge dt-badge-prototype">PROTOTYPE</span>
+                                </div>
+                                <h3 class="step-title">Impact Analysis</h3>
+                                <p class="step-desc">Analyze KPI trajectories, radar footprints, and trade-off risks.</p>
+                            </div>
+                            <div class="pipeline-arrow" aria-hidden="true">→</div>
+                            <div class="pipeline-step">
+                                <div class="step-meta">
+                                    <span class="step-number">05</span>
+                                    <span class="step-dt-badge dt-badge-test">TEST</span>
+                                </div>
+                                <h3 class="step-title">Comparison</h3>
+                                <p class="step-desc">Weigh priorities in real time and discover ranking flips.</p>
+                            </div>
+                            <div class="pipeline-arrow" aria-hidden="true">→</div>
+                            <div class="pipeline-step step-final">
+                                <div class="step-meta">
+                                    <span class="step-number">06</span>
+                                    <span class="step-dt-badge dt-badge-verdict">VERDICT</span>
+                                </div>
+                                <h3 class="step-title">Better Decision</h3>
+                                <p class="step-desc">Commit to the optimal strategy with complete confidence.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Design Thinking Framework Alignment -->
+                <div class="dt-framework-box">
+                    <div class="dt-framework-header">
+                        <span class="dt-box-title">Grounded in the Stanford d.school Design Thinking Framework</span>
+                    </div>
+                    <div class="dt-strip">
+                        <div class="dt-step dt-empathize">
+                            <span class="dt-num">01</span>
+                            <span class="dt-name">Empathize</span>
+                            <span class="dt-sub">Stakeholders</span>
+                        </div>
+                        <div class="dt-step dt-define">
+                            <span class="dt-num">02</span>
+                            <span class="dt-name">Define</span>
+                            <span class="dt-sub">Core Challenge</span>
+                        </div>
+                        <div class="dt-step dt-ideate">
+                            <span class="dt-num">03</span>
+                            <span class="dt-name">Ideate</span>
+                            <span class="dt-sub">3 Branches</span>
+                        </div>
+                        <div class="dt-step dt-prototype">
+                            <span class="dt-num">04</span>
+                            <span class="dt-name">Prototype</span>
+                            <span class="dt-sub">90-Day Engine</span>
+                        </div>
+                        <div class="dt-step dt-test">
+                            <span class="dt-num">05</span>
+                            <span class="dt-name">Test</span>
+                            <span class="dt-sub">Priority Sliders</span>
+                        </div>
+                    </div>
+                    <div class="how-cta-wrap">
+                        <button class="btn-primary" data-nav="home">OPEN THE MULTIVERSE ▸</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- MODEL & ASSUMPTIONS -->
+        <section id="page-model" class="page">
+            <div class="page-inner model-page">
+                <h1 class="display-heading">How the Watcher <span class="text-gold">calculates</span>.</h1>
+                <p class="model-body">Every timeline is produced by a transparent, rule-based model. Each constant below is an editable assumption. Change one and every branch recalculates.</p>
+                <div class="assumptions-list" id="model-assumptions"></div>
+                <div class="disclaimer-card">
+                    <p>⚠️ This is an illustrative model for exploring trade-offs. It is not a prediction, and its numbers should not be treated as forecasts.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ABOUT -->
+        <section id="page-about" class="page">
+            <div class="page-inner about-page">
+                <h1 class="display-heading">About <span class="text-cyan">WHAT IF?</span></h1>
+                <div class="about-content">
+                    <p class="about-body">WHAT IF? lets people test an idea in a virtual world before risking it in the real one.</p>
+                    <p class="about-body">Design thinking gave us the method; simulation gives us the view.</p>
+                    <p class="about-body text-mist">Built with curiosity, for better decisions.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- CHAT & DECISION HISTORY (SYSTEM RECOGNITION) -->
+        <section id="page-history" class="page">
+            <div class="page-inner history-page">
+                <div class="history-hero-header">
+                    <div class="history-badge-row">
+                        <span class="history-kicker">// SYSTEM MEMORY LOGS</span>
+                        <span class="sys-rec-pill" id="sys-rec-count">0 SESSIONS SAVED</span>
+                    </div>
+                    <h1 class="display-heading">Terminal <span class="text-gold">Decision History</span></h1>
+                    <p class="history-subheading">
+                        Hardware recognition recognizes your system terminal. All previous simulation queries, prompt inputs, variable configurations, and outcome scores are stored locally in persistent system memory.
+                    </p>
+                </div>
+
+                <!-- System Recognition Terminal Hardware Card -->
+                <div class="system-recognition-box">
+                    <div class="sys-rec-header">
+                        <div class="sys-rec-indicator">
+                            <span class="sys-rec-dot"></span>
+                            <span class="sys-rec-title">HARDWARE TERMINAL RECOGNITION</span>
+                        </div>
+                        <button class="sys-rec-clear-btn" id="btn-clear-history" title="Clear terminal session logs">
+                            Clear System Memory
+                        </button>
+                    </div>
+                    <div class="sys-rec-details-grid">
+                        <div class="sys-rec-item">
+                            <span class="rec-label">RECOGNIZED TERMINAL ID</span>
+                            <span class="rec-val text-cyan" id="sys-rec-id">NEXUS-NODE-000000</span>
+                        </div>
+                        <div class="sys-rec-item">
+                            <span class="rec-label">OPERATOR PROFILE</span>
+                            <span class="rec-val">SINGLE SYSTEM USER (LOCAL ROOT)</span>
+                        </div>
+                        <div class="sys-rec-item">
+                            <span class="rec-label">STORAGE PROTOCOL</span>
+                            <span class="rec-val">ISOLATED LOCAL STORAGE ENGINE</span>
+                        </div>
+                        <div class="sys-rec-item">
+                            <span class="rec-label">PRIVACY GUARANTEE</span>
+                            <span class="rec-val text-gold">100% CLIENT-SIDE DATA RETENTION</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Simulation History Feed -->
+                <div class="history-feed-wrap">
+                    <div class="history-feed-controls">
+                        <span class="history-feed-title">Recorded Decision Timelines</span>
+                        <span class="history-feed-hint">Click "Reload Timeline" to load any historical state into the simulation engine</span>
+                    </div>
+                    <div id="history-feed-container" class="history-feed-list">
+                        <!-- Dynamically populated by history.js -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ====== CONSENT MODAL ====== -->
+    <div id="consent-modal" class="consent-modal" role="dialog" aria-modal="true" aria-labelledby="consent-title" hidden>
+        <div class="consent-backdrop"></div>
+        <div class="consent-panel">
+            <div class="consent-header">
+                <h2 id="consent-title" class="consent-title">Before We Begin</h2>
+                <p class="consent-subtitle">Please read and acknowledge the following before starting your simulation.</p>
+            </div>
+            <div class="consent-body">
+                <label class="consent-check-label" for="check-privacy">
+                    <input type="checkbox" id="check-privacy" class="consent-checkbox">
+                    <span class="consent-check-text">
+                        I have read and agree to the
+                        <a href="privacy.html" target="_blank" class="consent-link" id="privacy-link">Privacy Policy</a>.
+                    </span>
+                </label>
+                <label class="consent-check-label" for="check-ai">
+                    <input type="checkbox" id="check-ai" class="consent-checkbox">
+                    <span class="consent-check-text">
+                        I understand that this experience is completely simulated by AI and that AI-generated responses may contain mistakes, inaccuracies, omissions, or misleading information. I will not treat the simulation as factual, professional, legal, medical, financial, or other expert advice.
+                        <a href="ai-disclaimer.html" target="_blank" class="consent-link">AI Simulation Disclaimer</a>.
+                    </span>
+                </label>
+            </div>
+            <div class="consent-footer">
+                <button id="consent-continue" class="btn-primary" disabled aria-disabled="true">
+                    Continue to Simulation
+                </button>
+                <button id="consent-cancel" class="consent-cancel-btn">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ====== ASSUMPTIONS DRAWER ====== -->
+    <div id="assumptions-drawer" class="drawer" role="dialog" aria-label="Assumptions" aria-hidden="true">
+        <div class="drawer-backdrop" id="drawer-backdrop"></div>
+        <div class="drawer-content">
+            <div class="drawer-header">
+                <h2>Assumptions</h2>
+                <button class="drawer-close" id="drawer-close" aria-label="Close">&times;</button>
+            </div>
+            <div class="drawer-body" id="drawer-body"></div>
+            <p class="drawer-footer">Illustrative model, not a forecast.</p>
+        </div>
+    </div>
+
+    <!-- ====== DEMO MODE BANNER ====== -->
+    <div id="demo-banner" class="demo-banner" hidden>
+        <span>Demo Mode · press any key to stop</span>
+    </div>
+
+    <!-- ====== GLOBAL FOOTER ====== -->
+    <footer class="global-footer">
+        <div class="footer-inner">
+            <span class="footer-brand">WhatIf</span>
+            <span class="footer-sep">·</span>
+            <span class="footer-tagline">Illustrative models, not forecasts.</span>
+            <nav class="footer-links" aria-label="Legal links">
+                <a href="privacy.html" class="footer-link">Privacy Policy</a>
+                <a href="ai-disclaimer.html" class="footer-link">AI Disclaimer</a>
+            </nav>
+        </div>
+    </footer>
+
+    <!-- ====== SCRIPTS (ordered by dependency) ====== -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <script src="js/presets.js?v=5.1"></script>
+    <script src="js/engine.js?v=5.1"></script>
+    <script src="js/charts.js?v=5.1"></script>
+    <script src="js/animations.js?v=5.1"></script>
+    <script src="js/multiverse.js?v=5.1"></script>
+    <script src="js/intro.js?v=5.1"></script>
+    <script src="js/home.js?v=5.1"></script>
+    <script src="js/analysis.js?v=5.1"></script>
+    <script src="js/simulate.js?v=5.1"></script>
+    <script src="js/compare.js?v=5.1"></script>
+    <script src="js/history.js?v=5.1"></script>
+    <script src="js/app.js?v=5.1"></script>
+    <script src="js/consent.js?v=5.1"></script>
+    <script src="js/demo.js?v=5.1"></script>
+    <script src="js/cursor-dots.js?v=5.1"></script>
+</body>
+</html>
