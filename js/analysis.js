@@ -37,9 +37,18 @@ window.WhatIf.Analysis = {
         headers: { 'Content-Type': 'application/json', 'X-WhatIf-Request': '1' },
         body: JSON.stringify({ question })
       });
+      if (response.status === 404 || response.status === 405) {
+        const error = new Error('The custom-scenario API is missing from this deployment. The site owner needs to deploy the server function. Built-in examples still work.');
+        error.code = 'API_ROUTE_MISSING';
+        throw error;
+      }
       let payload;
-      try { payload = await response.json(); } catch { throw new Error('Custom questions need the WhatIf server. Start the app with npm start.'); }
-      if (!response.ok) throw new Error(typeof payload.error === 'string' ? payload.error : 'Could not prepare this scenario. Please retry.');
+      try { payload = await response.json(); } catch { throw new Error('The custom-scenario API did not return a valid response. The site owner should check the deployment. Your question is preserved.'); }
+      if (!response.ok) {
+        const error = new Error(typeof payload.error === 'string' ? payload.error : 'Could not prepare this scenario. Please retry.');
+        error.code = payload.code;
+        throw error;
+      }
       if (controller.signal.aborted || question !== W.state.decision) return;
       W.Scenarios.start(question, 'custom', payload.scenario);
       this.render();
@@ -58,6 +67,14 @@ window.WhatIf.Analysis = {
       back.textContent = 'Edit question';
       back.addEventListener('click', () => W.navigate('home'));
       grid.appendChild(back);
+      if (['API_ROUTE_MISSING', 'DEPLOYMENT_CONFIG_INVALID', 'GEMINI_KEY_MISSING', 'GEMINI_KEY_INVALID', 'GEMINI_ACCESS_DENIED', 'GEMINI_MODEL_UNAVAILABLE'].includes(error.code)) {
+        const guide = document.createElement('a');
+        guide.className = 'btn-secondary';
+        guide.href = 'https://github.com/svpg10/whatif/blob/main/docs/GEMINI-SETUP.md';
+        guide.target = '_blank'; guide.rel = 'noopener noreferrer';
+        guide.textContent = 'Deployment setup guide (site owner)';
+        grid.appendChild(guide);
+      }
     } finally {
       clearTimeout(timeout);
       if (this.controller === controller) page.removeAttribute('aria-busy');

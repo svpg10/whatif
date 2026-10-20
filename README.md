@@ -202,7 +202,15 @@ Browser QA notes are in [`UX-NOTES.md`](UX-NOTES.md). These checks are not a ful
 
 Pushing this repository publishes the source. **GitHub Pages serves only the static frontend:** the four built-in scenarios can run there, but Pages cannot run `server.cjs` or `/api/scenario`. A Pages preview therefore does not enable custom AI questions. Publishing source and configuring a public application host are separate steps.
 
-### Full app with custom questions
+### Vercel: enable the existing hosted website
+
+The project includes Node functions for `/api/scenario` and `/api/status`, an allowlisted frontend build, and `vercel.json` configuration. Follow the [Gemini setup guide](docs/GEMINI-SETUP.md) for the exact Vercel fields and troubleshooting.
+
+For `https://whatif-red.vercel.app`, add **Production** environment variables `GEMINI_API_KEY` (your private key), `APP_ORIGIN=https://whatif-red.vercel.app` (no trailing slash), and optionally `GEMINI_MODEL`. Then redeploy. A local `.env` file does not configure Vercel.
+
+`GET /api/status` reports whether a key is present, without returning it or making a Google request. A successful custom question is still needed to validate permissions and quota. On Vercel, request limits apply to each warm function instance, not globally across scaled instances.
+
+### Other Node hosts
 
 Use a Node-capable host behind managed HTTPS. Serve the frontend and API from the **same origin**.
 

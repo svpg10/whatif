@@ -20,6 +20,8 @@ No accounts, database, uploads or payment routes are implemented; their authoriz
 
 ## Deployment and incident response
 
+Vercel uses `api/scenario.js` and `api/status.js` to run the shared request handler without a listening localhost server. A generated `public/` directory contains only frontend files; environment files, backend code and tests are excluded. The status route discloses only key presence and model name, never a key or provider response. The production origin is pinned to APP_ORIGIN or Vercel's trusted project-production URL, never a client-supplied Host header. In-memory limits apply per warm function instance and are not a shared spending cap. See [the setup guide](docs/GEMINI-SETUP.md).
+
 Deploy this server behind a managed HTTPS proxy; GitHub Pages alone cannot run the API. Inject GEMINI_API_KEY through the host's secret manager, set NODE_ENV=production and APP_ORIGIN to the exact origin (no trailing slash), bind HOST only as needed by the private host, and set provider spending limits. Do not use `python -m http.server` on the repository: it can expose untracked secrets. Publish operator contact and actual hosting-log retention details before launch.
 
 If a credential may have leaked, stop public API access, replace it in Google's console, update the server secret, revoke the exposed key and review Google quota/billing activity. Limit incident logs to request IDs/statuses. Never place real questions or keys in public issues.

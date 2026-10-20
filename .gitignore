@@ -21,3 +21,7 @@ css/temp.css
 
 .env*
 !.env.example
+
+# Generated Vercel static output and local project metadata
+public/
+.vercel/

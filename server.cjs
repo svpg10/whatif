@@ -15,10 +15,18 @@ const WINDOW = 60 * 60 * 1000;
 const MAX_BODY = 16 * 1024;
 
 class RequestError extends Error {
-  constructor(status, message) { super(message); this.status = status; }
+  constructor(status, message, code) { super(message); this.status = status; this.code = code; }
 }
 
 async function readBody(req) {
+  if (Number(req.headers['content-length']) > MAX_BODY) throw new RequestError(413, 'Question is too large. Use at most 2,000 characters.');
+  // Vercel can provide a pre-parsed body; the standalone server provides a stream.
+  if (req.body !== undefined) {
+    const raw = Buffer.isBuffer(req.body) ? req.body.toString('utf8') :
+      typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
+    if (Buffer.byteLength(raw) > MAX_BODY) throw new RequestError(413, 'Question is too large. Use at most 2,000 characters.');
+    try { return JSON.parse(raw); } catch { throw new RequestError(400, 'Send a valid JSON question.'); }
+  }
   let size = 0;
   const chunks = [];
   for await (const chunk of req) {
@@ -42,7 +50,7 @@ async function limitedJSON(response) {
   return JSON.parse(Buffer.concat(chunks).toString('utf8'));
 }
 
-function createApp(options = {}) {
+function createHandler(options = {}) {
   const env = options.env || process.env;
   const fetcher = options.fetch || fetch;
   const clock = options.now || Date.now;
@@ -56,11 +64,16 @@ function createApp(options = {}) {
   if (!/^[a-zA-Z0-9.-]{1,80}$/.test(model) || !Number.isInteger(perIP) || perIP < 1 ||
       !Number.isInteger(globalLimit) || globalLimit < 1) throw new Error('Invalid server configuration');
   const origin = env.APP_ORIGIN || null;
+  if (origin) {
+    let parsed;
+    try { parsed = new URL(origin); } catch { throw new Error('APP_ORIGIN must be an exact HTTPS origin'); }
+    if (parsed.origin !== origin || !['https:', 'http:'].includes(parsed.protocol)) throw new Error('APP_ORIGIN must be an exact HTTPS origin');
+  }
   if (env.NODE_ENV === 'production' && (!origin || !origin.startsWith('https://'))) {
     throw new Error('Set APP_ORIGIN to your HTTPS app origin before production startup');
   }
 
-  const server = http.createServer(async (req, res) => {
+  return async (req, res) => {
     const requestId = crypto.randomUUID();
     res.setHeader('X-Request-ID', requestId);
     res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -76,13 +89,15 @@ function createApp(options = {}) {
     };
     try {
       const url = new URL(req.url, 'http://localhost');
+      if (url.pathname === '/api/status' && ['GET', 'HEAD'].includes(req.method)) {
+        return json(200, { customScenariosConfigured: Boolean(env.GEMINI_API_KEY?.trim()), provider: 'gemini', model });
+      }
       if (url.pathname === '/api/scenario') {
         if (req.method !== 'POST') { res.setHeader('Allow', 'POST'); return json(405, { error: 'Use POST.' }); }
         // A custom header plus JSON content type prevents cross-site form requests.
         // No CORS headers are returned. Host/proxy headers never establish trust.
-        const address = server.address();
-        const allowedOrigin = origin || `http://localhost:${address.port}`;
-        const localOrigin = `http://127.0.0.1:${address.port}`;
+        const allowedOrigin = origin || `http://localhost:${req.socket.localPort}`;
+        const localOrigin = `http://127.0.0.1:${req.socket.localPort}`;
         const source = req.headers.origin;
         if ((source && source !== allowedOrigin && (origin || source !== localOrigin)) ||
             req.headers['sec-fetch-site'] === 'cross-site' || req.headers['x-whatif-request'] !== '1') {
@@ -98,7 +113,8 @@ function createApp(options = {}) {
         if (question.length < 6 || question.length > 2000 || /[\x00-\x08\x0b\x0c\x0e-\x1f]/.test(question)) {
           throw new RequestError(400, 'Use a question between 6 and 2,000 characters.');
         }
-        if (!env.GEMINI_API_KEY) throw new RequestError(503, 'Custom questions are not configured yet. Built-in scenarios still work.');
+        if (!env.GEMINI_API_KEY?.trim()) throw new RequestError(503,
+          'Custom questions are not configured on this deployment. The site owner needs to add GEMINI_API_KEY in the hosting environment and redeploy. Built-in examples still work.', 'GEMINI_KEY_MISSING');
         if (clock() - windowStart >= WINDOW) { buckets.clear(); total = 0; windowStart = clock(); }
         // Do not trust X-Forwarded-For. The global limit also caps spend behind a proxy.
         const ip = req.socket.remoteAddress;
@@ -123,8 +139,22 @@ function createApp(options = {}) {
             })
           });
           if (!upstream.ok) {
-            throw new RequestError(upstream.status === 429 ? 503 : 502,
-              'The AI service is unavailable. Try again shortly; your question has been preserved.');
+            let failure = null;
+            try { failure = await limitedJSON(upstream); } catch { /* Never expose upstream diagnostics. */ }
+            const reasons = failure?.error?.details?.map(detail => detail.reason) || [];
+            if (reasons.includes('API_KEY_INVALID') || upstream.status === 401) {
+              throw new RequestError(503, 'The configured Gemini API key is invalid. The site owner needs to replace it and redeploy.', 'GEMINI_KEY_INVALID');
+            }
+            if (upstream.status === 403) {
+              throw new RequestError(503, 'The Gemini API key does not have permission for this request. The site owner should check API restrictions and project access.', 'GEMINI_ACCESS_DENIED');
+            }
+            if (upstream.status === 404) {
+              throw new RequestError(503, 'The configured Gemini model is unavailable. The site owner should check GEMINI_MODEL and account model access.', 'GEMINI_MODEL_UNAVAILABLE');
+            }
+            if (upstream.status === 429) {
+              throw new RequestError(503, 'The Gemini account quota is exhausted or rate-limited. Check the project quota and billing, or try again later.', 'GEMINI_QUOTA_EXCEEDED');
+            }
+            throw new RequestError(502, 'The AI service is unavailable. Try again shortly; your question has been preserved.', 'GEMINI_UNAVAILABLE');
           }
           const result = await limitedJSON(upstream);
           const candidate = result.candidates?.[0];
@@ -160,9 +190,14 @@ function createApp(options = {}) {
       // No prompts, credentials, upstream payloads or exception text in logs/responses.
       if (status >= 500 && options.log !== false) console.error(JSON.stringify({ requestId, status }));
       if (!res.headersSent && !res.destroyed) json(status, { error: error.status ? error.message :
-        status === 404 ? 'Not found.' : 'Could not prepare this scenario. Please retry; your question is preserved.' });
+        status === 404 ? 'Not found.' : 'Could not prepare this scenario. Please retry; your question is preserved.',
+        ...(error.code && error instanceof RequestError ? { code: error.code } : {}) });
     }
-  });
+  };
+}
+
+function createApp(options = {}) {
+  const server = http.createServer(createHandler(options));
   server.requestTimeout = 45000;
   server.headersTimeout = 10000;
   server.maxHeadersCount = 50;
@@ -175,4 +210,4 @@ if (require.main === module) {
     console.log(`WhatIf running at http://localhost:${server.address().port}`);
   });
 }
-module.exports = { createApp };
+module.exports = { createApp, createHandler };
