@@ -7,8 +7,8 @@ const cp = require('node:child_process');
 const { createVercelHandler } = require('../lib/vercel-handler.cjs');
 const { scenario } = require('./fixtures.cjs');
 
-async function invoke(handler, { url = '/api/scenario', method = 'POST', origin = 'https://whatif-red.vercel.app', body = { question: 'What if our team adopts chiplets?' } } = {}) {
-  const req = { url, method, body, headers: { origin, 'content-type': 'application/json', 'x-whatif-request': '1' }, socket: {} };
+async function invoke(handler, { url = '/api/scenario', method = 'POST', origin = 'https://whatif-red.vercel.app', headers = {}, body = { question: 'What if our team adopts chiplets?' } } = {}) {
+  const req = { url, method, body, headers: { origin, 'content-type': 'application/json', 'x-whatif-request': '1', ...headers }, socket: {} };
   const res = Object.assign(new EventEmitter(), { headersSent: false, writableEnded: false,
     headers: {}, setHeader(key, value) { this.headers[key.toLowerCase()] = value; },
     writeHead(status, headers) { this.status = status; this.headersSent = true; for (const [k, v] of Object.entries(headers)) this.setHeader(k, v); },
@@ -37,6 +37,25 @@ test('Vercel exposes only non-secret configuration status and actionable setup e
   assert.equal((await invoke(handler)).body.code, 'GEMINI_KEY_MISSING');
   const bad = createVercelHandler({ env: { APP_ORIGIN: 'https://whatif-red.vercel.app/' } });
   assert.equal((await invoke(bad)).body.code, 'DEPLOYMENT_CONFIG_INVALID');
+});
+test('this project’s exact production, deployment and branch origins work; other Vercel sites and spoofed hosts do not', async () => {
+  let calls = 0;
+  const handler = createVercelHandler({ log: false, env: { APP_ORIGIN: 'https://decisions.example.test',
+    VERCEL_URL: 'whatif-test123-svpg.vercel.app', VERCEL_BRANCH_URL: 'whatif-git-main-svpg.vercel.app',
+    VERCEL_PROJECT_PRODUCTION_URL: 'whatif-red.vercel.app', GEMINI_API_KEY: 'test-key' },
+    fetch: async () => { calls++; return new Response(JSON.stringify({ candidates: [{ finishReason: 'STOP', content: { parts: [{ text: JSON.stringify(scenario) }] } }] })); } });
+  for (const origin of ['https://decisions.example.test', 'https://whatif-test123-svpg.vercel.app',
+    'https://whatif-git-main-svpg.vercel.app', 'https://whatif-red.vercel.app']) {
+    assert.equal((await invoke(handler, { origin })).status, 200, origin);
+  }
+  for (const origin of ['https://another-project.vercel.app', 'https://whatif-red.vercel.app.evil.example',
+    'https://whatif-other-svpg.vercel.app']) {
+    const result = await invoke(handler, { origin, headers: { host: 'whatif-red.vercel.app', 'x-forwarded-host': 'whatif-test123-svpg.vercel.app' } });
+    assert.equal(result.status, 403, origin);
+    assert.equal(result.body.code, 'ORIGIN_NOT_ALLOWED');
+  }
+  assert.equal((await invoke(handler, { headers: { 'sec-fetch-site': 'cross-site' } })).status, 403);
+  assert.equal(calls, 4, 'rejected origins must not consume AI quota');
 });
 test('provider credential, permission, model and quota failures are distinguishable without raw diagnostics', async () => {
   for (const [status, reason, code] of [[400, 'API_KEY_INVALID', 'GEMINI_KEY_INVALID'], [403, null, 'GEMINI_ACCESS_DENIED'],

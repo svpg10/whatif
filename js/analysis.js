@@ -67,7 +67,7 @@ window.WhatIf.Analysis = {
       back.textContent = 'Edit question';
       back.addEventListener('click', () => W.navigate('home'));
       grid.appendChild(back);
-      if (['API_ROUTE_MISSING', 'DEPLOYMENT_CONFIG_INVALID', 'GEMINI_KEY_MISSING', 'GEMINI_KEY_INVALID', 'GEMINI_ACCESS_DENIED', 'GEMINI_MODEL_UNAVAILABLE'].includes(error.code)) {
+      if (['API_ROUTE_MISSING', 'DEPLOYMENT_CONFIG_INVALID', 'ORIGIN_NOT_ALLOWED', 'GEMINI_KEY_MISSING', 'GEMINI_KEY_INVALID', 'GEMINI_ACCESS_DENIED', 'GEMINI_MODEL_UNAVAILABLE'].includes(error.code)) {
         const guide = document.createElement('a');
         guide.className = 'btn-secondary';
         guide.href = 'https://github.com/svpg10/whatif/blob/main/docs/GEMINI-SETUP.md';

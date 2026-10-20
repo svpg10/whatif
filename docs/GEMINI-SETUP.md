@@ -20,7 +20,9 @@ Use your existing key, or follow [Google's API-key setup instructions](https://a
 
 Keep the key in a server-side variable. Do not add it to frontend JavaScript, GitHub, a `VITE_`/`NEXT_PUBLIC_` variable, or a public input field. If the key has API restrictions, they must permit the Generative Language API and server-side calls. Configure provider quotas suitable for this public endpoint.
 
-`APP_ORIGIN` falls back to Vercel's trusted `VERCEL_PROJECT_PRODUCTION_URL` when that system variable is exposed. Setting the exact origin explicitly makes the intended production domain clear. Preview deployments need environment values appropriate to the origin being tested.
+`APP_ORIGIN` falls back to Vercel's trusted `VERCEL_PROJECT_PRODUCTION_URL` when that system variable is exposed. The function also accepts the exact `VERCEL_URL` and `VERCEL_BRANCH_URL` assigned to this deployment by Vercel. It does not accept every `*.vercel.app` site or trust incoming Host headers. Preview deployments need the key available in the Preview environment.
+
+Use **https://whatif-red.vercel.app/** for the current production version. Individual deployment URLs are immutable: an older deployment keeps its old code even after a fix is published to the production domain.
 
 ## 2. Redeploy
 
@@ -47,6 +49,7 @@ Open [the configuration status endpoint](https://whatif-red.vercel.app/api/statu
 | Result | Meaning and next action |
 | --- | --- |
 | `/api/scenario` returns 404 | The function is missing. Deploy the latest repository commit to the correct project. |
+| `ORIGIN_NOT_ALLOWED` | Open the current production domain. Check APP_ORIGIN and the deployment's Vercel system URL variables; an old deployment URL may still be running old code. |
 | `DEPLOYMENT_CONFIG_INVALID` | Set the exact HTTPS `APP_ORIGIN`; check model and positive integer request-limit settings, then redeploy. |
 | `GEMINI_KEY_MISSING` | Add `GEMINI_API_KEY` to the correct Vercel environment and redeploy. |
 | `GEMINI_KEY_INVALID` | Replace the server-side key with a valid key, then redeploy. |

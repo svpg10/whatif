@@ -72,6 +72,12 @@ function createHandler(options = {}) {
   if (env.NODE_ENV === 'production' && (!origin || !origin.startsWith('https://'))) {
     throw new Error('Set APP_ORIGIN to your HTTPS app origin before production startup');
   }
+  const allowedOrigins = new Set(origin ? [origin] : []);
+  for (const extra of options.allowedOrigins || []) {
+    const parsed = new URL(extra);
+    if (parsed.origin !== extra || parsed.protocol !== 'https:') throw new Error('Additional origins must be exact HTTPS origins');
+    allowedOrigins.add(extra);
+  }
 
   return async (req, res) => {
     const requestId = crypto.randomUUID();
@@ -96,12 +102,13 @@ function createHandler(options = {}) {
         if (req.method !== 'POST') { res.setHeader('Allow', 'POST'); return json(405, { error: 'Use POST.' }); }
         // A custom header plus JSON content type prevents cross-site form requests.
         // No CORS headers are returned. Host/proxy headers never establish trust.
-        const allowedOrigin = origin || `http://localhost:${req.socket.localPort}`;
+        const allowedOrigin = `http://localhost:${req.socket.localPort}`;
         const localOrigin = `http://127.0.0.1:${req.socket.localPort}`;
         const source = req.headers.origin;
-        if ((source && source !== allowedOrigin && (origin || source !== localOrigin)) ||
+        const trustedOrigin = allowedOrigins.has(source) || (!origin && [allowedOrigin, localOrigin].includes(source));
+        if ((source && !trustedOrigin) ||
             req.headers['sec-fetch-site'] === 'cross-site' || req.headers['x-whatif-request'] !== '1') {
-          throw new RequestError(403, 'This request must come from the WhatIf app.');
+          throw new RequestError(403, 'This website address is not enabled for custom questions. Open the current production website or ask the site owner to check the deployment origin settings.', 'ORIGIN_NOT_ALLOWED');
         }
         if (!/^application\/json(?:\s*;|$)/i.test(req.headers['content-type'] || '')) {
           throw new RequestError(415, 'Use application/json.');
