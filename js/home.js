@@ -34,79 +34,95 @@
         const chips = document.querySelectorAll(SELECTORS.chips);
         const input = document.querySelector(SELECTORS.input);
         const ctaBtn = document.querySelector(SELECTORS.ctaBtn);
+        const form = document.getElementById('decision-form');
+        const error = document.getElementById('decision-error');
+        const selection = document.getElementById('decision-selection');
 
         if (!input || !ctaBtn) return;
+        const clearError = () => {
+            if (error) { error.hidden = true; error.textContent = ''; }
+            input.removeAttribute('aria-invalid');
+        };
+        const submit = () => {
+            if (input.value.trim().length < 6) {
+                if (error) { error.textContent = 'Describe your decision in at least 6 characters.'; error.hidden = false; }
+                input.setAttribute('aria-invalid', 'true');
+                input.focus();
+                return;
+            }
+            clearError();
+            handleCTA(input.value.trim());
+        };
 
         // Preset chip clicks
         chips.forEach(chip => {
             chip.addEventListener('click', (e) => {
-                chips.forEach(c => c.classList.remove('selected'));
+                chips.forEach(c => { c.classList.remove('selected'); c.setAttribute('aria-pressed', 'false'); });
                 chip.classList.add('selected');
+                chip.setAttribute('aria-pressed', 'true');
                 
                 const presetKey = chip.getAttribute('data-preset');
                 if (PRESETS[presetKey]) {
                     input.value = PRESETS[presetKey];
                     window.WhatIf.state.currentPreset = presetKey;
+                    clearError();
+                    if (selection) selection.textContent = 'Example selected. Edit the question or explore it as it is.';
                     updateCTAState(input, ctaBtn);
+                    input.focus({ preventScroll: true });
+                    document.querySelector('.decision-composer')?.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' });
                 }
             });
         });
 
         // Input text changes
         input.addEventListener('input', () => {
-            chips.forEach(c => c.classList.remove('selected'));
+            chips.forEach(c => { c.classList.remove('selected'); c.setAttribute('aria-pressed', 'false'); });
             window.WhatIf.state.currentPreset = null;
+            clearError();
+            if (selection) selection.textContent = 'Custom questions use AI. Examples use built-in models.';
             updateCTAState(input, ctaBtn);
         });
 
         // Enter key in input
         input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && input.value.trim().length > 5) {
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
                 e.preventDefault();
-                handleCTA(input.value.trim());
+                submit();
             }
         });
 
         // CTA button click
-        ctaBtn.addEventListener('click', () => {
-            if (input.value.trim().length > 5) {
-                handleCTA(input.value.trim());
-            }
-        });
+        form.addEventListener('submit', e => { e.preventDefault(); submit(); });
+        chips.forEach(chip => chip.setAttribute('aria-pressed', 'false'));
 
         updateCTAState(input, ctaBtn);
     }
 
     function updateCTAState(input, btn) {
-        if (input.value.trim().length > 5) {
-            btn.removeAttribute('disabled');
-            btn.classList.add('active');
-        } else {
-            btn.setAttribute('disabled', 'true');
-            btn.classList.remove('active');
-        }
+        btn.removeAttribute('disabled');
+        btn.classList.toggle('active', input.value.trim().length > 5);
     }
 
     function handleCTA(decisionText) {
-        window.WhatIf.state.decision = decisionText;
-        if (!window.WhatIf.state.currentPreset) {
-            for (const [key, text] of Object.entries(PRESETS)) {
-                if (decisionText.toLowerCase().includes(key) || text.toLowerCase() === decisionText.toLowerCase()) {
-                    window.WhatIf.state.currentPreset = key;
-                    break;
-                }
-            }
-            if (!window.WhatIf.state.currentPreset) {
-                window.WhatIf.state.currentPreset = 'hormuz';
-            }
-        }
+        const selected = Object.entries(PRESETS).find(([, text]) => text.toLowerCase() === decisionText.toLowerCase());
+        const key = selected ? selected[0] : 'custom';
         // Show consent modal before navigating to simulation
-        if (window.WhatIf.Consent && window.WhatIf.Consent.show) {
-            window.WhatIf.Consent.show(function() {
-                window.WhatIf.navigate('analysis');
-            });
-        } else {
+        const proceed = () => {
+            if (key === 'custom') {
+                window.WhatIf.state.decision = decisionText;
+                window.WhatIf.state.currentPreset = 'custom';
+                window.WhatIf.state.customScenario = null;
+                window.WhatIf.state.sliderValues = {};
+                window.WhatIf.state.simulationResults = null;
+            } else {
+                window.WhatIf.Scenarios.start(decisionText, key);
+            }
             window.WhatIf.navigate('analysis');
+        };
+        if (window.WhatIf.Consent && window.WhatIf.Consent.show) {
+            window.WhatIf.Consent.show(proceed);
+        } else {
+            proceed();
         }
     }
 

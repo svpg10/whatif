@@ -37,34 +37,34 @@
 
   /* ── Educational Flashcard Content ── */
   const KNOWLEDGE_ITEMS = [
-    { cat: 'DIGITAL LOGIC', q: 'What is an FPGA?', a: 'A field-programmable gate array configured after manufacturing.' },
-    { cat: 'PHYSICS', q: "What is Ohm's Law?", a: 'V = I × R (current is proportional to voltage across resistance).' },
-    { cat: 'AUTOMATA', q: 'What is an FSM?', a: 'A finite state machine transitioning through discrete behavioral states.' },
-    { cat: 'SEMICONDUCTORS', q: 'What is a transistor?', a: 'A solid-state device used to amplify or switch electrical signals.' },
-    { cat: 'COMPUTER SCIENCE', q: 'What is recursion?', a: 'A function that solves problem instances by invoking itself.' },
-    { cat: 'ARTIFICIAL INTEL.', q: 'What is a neural network?', a: 'Interconnected computational nodes learning weighted representations.' },
-    { cat: 'SOFTWARE', q: 'What is an API?', a: 'An application programming interface defining software communication.' },
-    { cat: 'NETWORKING', q: 'What is TCP/IP?', a: 'Transmission control & internet protocols governing network packets.' },
-    { cat: 'SYSTEMS', q: 'What is a compiler?', a: 'Translates high-level source code into target machine instructions.' },
-    { cat: 'OPERATING SYSTEMS', q: 'What is virtual memory?', a: 'Memory management technique mapping virtual to physical addresses.' },
-    { cat: 'CIRCUITS', q: 'What is a capacitor?', a: 'A passive two-terminal component storing energy in an electric field.' },
-    { cat: 'BIOLOGY', q: 'What is photosynthesis?', a: 'Conversion of light energy into chemical energy by green plants.' },
-    { cat: 'ALGORITHMS', q: 'What is Big-O notation?', a: 'Mathematical classification of algorithm runtime and space growth.' },
-    { cat: 'SOLID STATE', q: 'What is a semiconductor?', a: 'Material with conductivity between conductors and insulators.' },
-    { cat: 'DATA SYSTEMS', q: 'What is an ACID transaction?', a: 'Atomicity, Consistency, Isolation, and Durability guarantees.' },
-    { cat: 'ELECTRONICS', q: 'What is a diode?', a: 'A semiconductor device permitting electric current flow in one direction.' },
-    { cat: 'MACHINE LEARNING', q: 'What is gradient descent?', a: 'First-order optimization algorithm finding local parameter minima.' },
-    { cat: 'EMBEDDED', q: 'What is a microcontroller?', a: 'A compact integrated circuit executing dedicated embedded firmware.' },
-    { cat: 'INFORMATION', q: 'What is Shannon entropy?', a: 'The average expected information content in an outcome message.' },
-    { cat: 'DIGITAL LOGIC', q: 'What is a flip-flop?', a: 'A bi-stable multivibrator circuit storing one bit of data state.' },
-    { cat: 'COMPLEXITY', q: 'What is P vs NP?', a: 'Whether problems verifiable in polynomial time are solvable in polynomial time.' },
-    { cat: 'QUANTUM', q: 'What is superposition?', a: 'Quantum state existing as a linear combination of basis eigenstates.' },
-    { cat: 'PHYSICS', q: 'What is Heisenberg uncertainty?', a: 'Fundamental limit on precision of conjugate observable measurements.' },
-    { cat: 'NETWORKS', q: 'What is packet routing?', a: 'Forwarding network traffic along paths determined by routing tables.' },
-    { cat: 'SYSTEMS', q: 'What is a cache hit?', a: 'Retrieving data directly from high-speed temporary SRAM storage.' },
-    { cat: 'MATHEMATICS', q: 'What is a Fourier transform?', a: 'Decomposes a time-domain function into constituent frequencies.' },
-    { cat: 'NEUROSCIENCE', q: 'What is an action potential?', a: 'Rapid voltage spike traveling along a neuron membrane.' },
-    { cat: 'SECURITY', q: 'What is asymmetric cryptography?', a: 'Public-key encryption enabling secure key exchange over open channels.' },
+    {"cat":"CHIP FUTURES","q":"What comes after silicon scaling?","a":"New materials, stacked devices and smarter system integration."},
+    {"cat":"3D INTEGRATION","q":"What if chips grew vertically?","a":"Explore stacked logic and memory beyond a flat chip."},
+    {"cat":"CHIPLETS","q":"What if one chip became many?","a":"Combine specialized dies in a closely connected semiconductor system."},
+    {"cat":"TRANSISTOR ROADMAP","q":"What comes after nanosheets?","a":"Explore complementary FETs with vertically stacked transistor channels."},
+    {"cat":"BACKSIDE POWER","q":"What if power took a new path?","a":"Route power behind the wafer to rethink chip wiring."},
+    {"cat":"MEMORY & LOGIC","q":"What if memory moved closer?","a":"Explore shorter paths between stored data and computing logic."},
+    {"cat":"NEW MATERIALS","q":"What if channels became atom-thin?","a":"Investigate two-dimensional materials for future transistor channels."},
+    {"cat":"SYSTEM SCALING","q":"What if the package became the system?","a":"Explore how advanced packaging connects logic, memory and specialized dies."},
+    {"cat":"DESIGN TRADE-OFFS","q":"What if smaller was not enough?","a":"Balance power, performance, area and cost across the whole system."},
+    {"cat":"HETEROGENEOUS CHIPS","q":"What if every die had a different job?","a":"Match specialized semiconductor components to the work they do."},
+    {"cat":"THERMAL DESIGN","q":"What if stacked chips ran too hot?","a":"Make heat removal part of the semiconductor design decision."},
+    {"cat":"INTERCONNECTS","q":"What if wiring set the limit?","a":"Rethink the connections that carry signals between tiny transistors."},
+    {"cat":"3D MEMORY","q":"What if data lived above the logic?","a":"Explore memory-on-logic integration and its engineering trade-offs."},
+    {"cat":"DEVICE RESEARCH","q":"What if transistors stacked together?","a":"Investigate vertical device architectures for the next scaling frontier."},
+    {"cat":"FAB OF THE FUTURE","q":"What if yield shaped the architecture?","a":"Compare manufacturability with the promise of denser semiconductor systems."},
+    {"cat":"DIE INTEGRATION","q":"What if different materials worked together?","a":"Explore heterogeneous integration on a shared silicon platform."},
+    {"cat":"FUTURE COMPUTE","q":"What if chips were built around the workload?","a":"Explore specialized silicon and the trade-offs of dedicated hardware."},
+    {"cat":"POWER BUDGETS","q":"What if energy became the main constraint?","a":"Make energy use a starting point for future chip design."},
+    {"cat":"CHIP ARCHITECTURE","q":"What if we redesigned the whole stack?","a":"Consider devices, interconnects, memory and packaging as one system."},
+    {"cat":"SCALING FRONTIER","q":"What if a new device changed the layout?","a":"Explore how transistor architectures reshape the standard cell."},
+    {"cat":"PROCESS INNOVATION","q":"What if fabrication needed a new sequence?","a":"Investigate integration steps for the next generation of stacked devices."},
+    {"cat":"CHIP RELIABILITY","q":"What if more layers meant more risk?","a":"Weigh complex integration against testing and long-term chip reliability."},
+    {"cat":"CO-DESIGN","q":"What if designers and fabs planned together?","a":"Align circuit choices with semiconductor technology and manufacturing constraints."},
+    {"cat":"FUTURE PACKAGING","q":"What if the shortest connection won?","a":"Explore dense die-to-die connections in advanced semiconductor packages."},
+    {"cat":"SEMICONDUCTOR R&D","q":"What if the next breakthrough was a material?","a":"Explore channel and interconnect materials beyond familiar design limits."},
+    {"cat":"SCALABLE SYSTEMS","q":"What if we reused proven chiplets?","a":"Compare modular semiconductor design with a single integrated die."},
+    {"cat":"SILICON ROADMAP","q":"What if we optimized beyond the node?","a":"Evaluate the complete chip system alongside transistor scaling."},
+    {"cat":"NEXT-GEN CHIPS","q":"What if we explored before we fabricated?","a":"Compare semiconductor design choices before committing to a new direction."},
   ];
 
   /* ── Global State ── */
@@ -760,11 +760,36 @@
     }
   }
 
+  function finishIntro() {
+    if (animFrameId) cancelAnimationFrame(animFrameId);
+    if (mainTimeline) mainTimeline.kill();
+    stopAllAudio();
+    document.getElementById('intro-gate')?.remove();
+    try { sessionStorage.setItem('whatif-intro-played', 'true'); } catch { /* App works without storage. */ }
+    if (window.location.pathname.endsWith('landing.html')) {
+      window.location.href = 'index.html#home';
+      return;
+    }
+    const overlay = document.getElementById('intro-overlay');
+    if (overlay) { overlay.style.display = 'none'; overlay.hidden = true; }
+    const app = document.getElementById('app');
+    if (app) app.inert = false;
+    const navbar = document.getElementById('navbar');
+    if (navbar) navbar.style.display = 'flex';
+    window.WhatIf.introPlayed = true;
+    window.dispatchEvent(new CustomEvent('whatif:intro-complete'));
+    const target = window.WhatIf.pendingTargetPage || 'home';
+    window.WhatIf.pendingTargetPage = null;
+    window.WhatIf.navigate?.(target);
+    document.getElementById('decision-input')?.focus({ preventScroll: true });
+  }
+
   function transitionToApp() {
     if (isTransitioned) return;
     isTransitioned = true;
 
     stopAllAudio();
+    if (typeof gsap === 'undefined') { finishIntro(); return; }
 
     const overlay = document.getElementById('intro-overlay');
     if (!overlay) return;
@@ -790,34 +815,7 @@
             if (mainTimeline) mainTimeline.kill();
             gsap.killTweensOf('*');
 
-            const isStandaloneLanding = window.location.pathname.endsWith('landing.html');
-            if (isStandaloneLanding) {
-              window.location.href = 'index.html#home';
-              return;
-            }
-
-            overlay.style.display = 'none';
-            const navbar = document.getElementById('navbar');
-            if (navbar) navbar.style.display = 'flex';
-
-            sessionStorage.setItem('whatif-intro-played', 'true');
-            window.WhatIf.introPlayed = true;
-
-            // Signal cursor-dots.js to activate
-            window.dispatchEvent(new CustomEvent('whatif:intro-complete'));
-
-            const target = window.WhatIf.pendingTargetPage || 'home';
-            window.WhatIf.pendingTargetPage = null;
-
-            try {
-              history.pushState(null, '', '#' + target);
-            } catch (e) {
-              window.location.hash = '#' + target;
-            }
-
-            if (window.WhatIf.navigate) {
-              window.WhatIf.navigate(target);
-            }
+            finishIntro();
           },
         });
       },
@@ -881,7 +879,7 @@
     // This handler keeps firing on every interaction until audio is confirmed playing.
     let audioUnlocked = false;
     const unlockAudio = () => {
-      if (audioUnlocked) return;
+      if (audioUnlocked || isTransitioned) return;
 
       const ctx = getAudioCtx();
       if (!ctx) return;
@@ -903,6 +901,7 @@
       } else if (!bgmAudioBuffer) {
         // BGM not loaded yet — preload and play as soon as ready
         preloadBGM().then(() => {
+          if (isTransitioned) return;
           const ct = getAudioCtx();
           if (ct && ct.state === 'suspended') ct.resume().catch(() => {});
           const currentTimelineTime = mainTimeline ? mainTimeline.time() : 0;
@@ -938,7 +937,8 @@
 
     // Strict Intro Guard: No user can access any page without completing intro first.
     // If already played in this session, skip overlay and resume.
-    const alreadyPlayed = sessionStorage.getItem('whatif-intro-played') === 'true';
+    let alreadyPlayed = false;
+    try { alreadyPlayed = sessionStorage.getItem('whatif-intro-played') === 'true'; } catch { /* Session storage is optional. */ }
     if (!isStandaloneLanding && alreadyPlayed) {
       const overlay = document.getElementById('intro-overlay');
       if (overlay) overlay.style.display = 'none';
@@ -953,10 +953,8 @@
       return;
     }
 
-    if (checkReducedMotion()) {
-      buildDOM();
-      bindEvents();
-      transitionToApp();
+    if (checkReducedMotion() || typeof gsap === 'undefined') {
+      finishIntro();
       return;
     }
 
@@ -967,10 +965,15 @@
       overlay.innerHTML = '';
       overlay.style.display = 'flex';
     }
+    const app = document.getElementById('app');
+    if (app) app.inert = true;
 
     // Create the click-to-start gate
     const gate = document.createElement('div');
     gate.id = 'intro-gate';
+    gate.setAttribute('role', 'dialog');
+    gate.setAttribute('aria-modal', 'true');
+    gate.setAttribute('aria-label', 'Welcome to What If');
     gate.style.cssText = `
       position: fixed; inset: 0; z-index: 99999;
       display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -979,9 +982,8 @@
     `;
     gate.innerHTML = `
       <img src="assets/logo.png" alt="WHAT IF?" style="width: min(320px, 60vw); margin-bottom: 32px; opacity: 0.92; filter: drop-shadow(0 0 30px rgba(242,184,75,0.35));">
-      <div style="color: #F2B84B; font-family: 'Oswald', sans-serif; font-size: clamp(16px, 3vw, 22px); letter-spacing: 4px; text-transform: uppercase; animation: gatePulse 2s ease-in-out infinite;">
-        ▶ &nbsp; CLICK ANYWHERE TO EXPERIENCE
-      </div>
+      <button type="button" id="intro-watch" style="background:transparent; border:1px solid #64748B; border-radius:8px; padding:16px 24px; color:#E2E8F0; font:600 16px Inter,sans-serif; cursor:pointer;">▶ &nbsp; Watch the semiconductor futures intro</button>
+      <button type="button" id="intro-enter" style="margin-top:16px; background:#B80F16; border:1px solid #FF4D55; border-radius:8px; padding:16px 24px; color:white; font:600 16px Inter,sans-serif; cursor:pointer;">Go straight to the app →</button>
       <style>
         @keyframes gatePulse {
           0%, 100% { opacity: 0.6; }
@@ -990,6 +992,22 @@
       </style>
     `;
     document.body.appendChild(gate);
+    gate.querySelector('#intro-enter').addEventListener('click', e => {
+      e.stopPropagation();
+      isTransitioned = true;
+      finishIntro();
+    });
+    gate.querySelector('#intro-enter').focus();
+    gate.addEventListener('keydown', e => {
+      if (e.key === 'Escape') { e.preventDefault(); isTransitioned = true; finishIntro(); }
+      if (e.key === 'Tab') {
+        const watch = gate.querySelector('#intro-watch');
+        const enter = gate.querySelector('#intro-enter');
+        if (e.shiftKey && document.activeElement === watch) { e.preventDefault(); enter.focus(); }
+        else if (!e.shiftKey && document.activeElement === enter) { e.preventDefault(); watch.focus(); }
+      }
+    });
+    let launched = false;
 
     // Start preloading in the background
     const fontsReady = (document.fonts && document.fonts.ready)
@@ -1006,6 +1024,8 @@
 
     // On ANY click/touch/key on the gate → launch the full cinematic experience with audio
     const launchExperience = () => {
+      if (launched || isTransitioned) return;
+      launched = true;
       gate.removeEventListener('click', launchExperience);
       gate.removeEventListener('touchstart', launchExperience);
       gate.removeEventListener('keydown', launchExperience);
@@ -1017,6 +1037,7 @@
       }
 
       const doLaunch = () => {
+        if (isTransitioned) return;
         // Remove gate
         if (gate.parentNode) gate.parentNode.removeChild(gate);
 
@@ -1032,16 +1053,17 @@
         doLaunch();
       } else {
         // Assets still loading — show a brief "Loading..." then launch
-        gate.querySelector('div').textContent = 'LOADING...';
-        Promise.all([fontsReady, bgmReady]).finally(() => {
+        gate.querySelector('#intro-watch').textContent = 'Loading intro…';
+        Promise.race([Promise.all([fontsReady, bgmReady]), new Promise(resolve => setTimeout(resolve, 2000))]).finally(() => {
           doLaunch();
         });
       }
     };
 
     gate.addEventListener('click', launchExperience);
-    gate.addEventListener('touchstart', launchExperience, { passive: true });
-    gate.addEventListener('keydown', launchExperience);
+    gate.querySelector('#intro-watch').addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); launchExperience(); }
+    });
   }
 
   if (document.readyState === 'loading') {

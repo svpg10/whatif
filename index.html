@@ -7,8 +7,9 @@
     <meta name="description" content="Don't just imagine the future. Simulate it before you build it.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Oswald:wght@500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Anton&family=Manrope:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Oswald:wght@500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/styles.css?v=5.1">
+    <link rel="stylesheet" href="css/app-ui.css?v=6">
     <link rel="icon" type="image/png" href="assets/logo.png">
     <style id="nav-drawer-critical-css">
         /* Guaranteed styling for 3 horizontal stripes menu button */
@@ -92,15 +93,16 @@
     </style>
 </head>
 <body>
+    <a class="skip-to-app" href="#app">Skip to content</a>
 
     <!-- ====== INTRO OVERLAY ====== -->
     <div id="intro-overlay" class="intro-overlay" role="dialog" aria-label="Introduction">
         <div class="intro-cards" id="intro-cards">
-            <div class="intro-card" data-index="0">What if we cut prices?</div>
-            <div class="intro-card" data-index="1">What if the strait closes?</div>
-            <div class="intro-card" data-index="2">What if I take the job?</div>
-            <div class="intro-card" data-index="3">What if we build 500 stations?</div>
-            <div class="intro-card" data-index="4">What if the rains fail?</div>
+            <div class="intro-card" data-index="0">What if chips grew vertically?</div>
+            <div class="intro-card" data-index="1">What if one chip became many?</div>
+            <div class="intro-card" data-index="2">What comes after nanosheets?</div>
+            <div class="intro-card" data-index="3">What if power took a new path?</div>
+            <div class="intro-card" data-index="4">What if channels became atom-thin?</div>
             <div class="intro-card" data-index="5">What if...?</div>
         </div>
         <div class="intro-flash" id="intro-flash"></div>
@@ -126,6 +128,10 @@
         <a href="#home" class="nav-brand" data-nav="home" aria-label="WhatIf home">
             <img src="assets/logo.png" alt="WhatIf" class="nav-logo-img" height="26" width="83" style="height: 26px !important; max-height: 26px !important; width: auto !important; max-width: 90px !important; display: block; object-fit: contain;">
         </a>
+        <div class="nav-quick-links">
+            <a href="#home" data-nav="home">New decision</a>
+            <a href="#history" data-nav="history">History</a>
+        </div>
     </nav>
 
     <!-- ====== NAVIGATION DIRECTORY DRAWER ====== -->
@@ -218,17 +224,35 @@
     </aside>
 
     <!-- ====== MAIN CONTENT ====== -->
-    <main id="app">
+    <main id="app" tabindex="-1">
 
         <!-- HOME / NEXUS INPUT -->
         <section id="page-home" class="page active">
             <div class="page-inner home-page">
-                <h1 class="display-heading">Every decision is a <span class="text-gold">Nexus Event</span>.</h1>
-                <p class="subheading">Describe a choice. We'll branch the timeline and show you what happens next.</p>
-                <div class="nexus-input-wrap">
-                    <input type="text" id="decision-input" class="nexus-input"
-                           placeholder="What decision are you considering?"
-                           aria-label="Enter your decision" autocomplete="off">
+                <div class="home-hero">
+                    <div class="home-introduction">
+                        <p class="home-eyebrow"><span></span> THE FUTURE ISN'T A SINGLE TIMELINE</p>
+                        <h1 class="display-heading">One decision.<br><span class="text-gold">Possible futures.</span></h1>
+                        <p class="subheading">Explore the choices ahead. Adjust your assumptions, follow three timelines, and see the trade-offs.</p>
+                        <ol class="home-journey" aria-label="How your decision unfolds">
+                            <li><span>01</span> Describe a choice</li>
+                            <li><span>02</span> Explore three strategies</li>
+                            <li><span>03</span> Compare what matters</li>
+                        </ol>
+                    </div>
+                    <form class="decision-composer" id="decision-form" novalidate>
+                        <p class="composer-kicker">YOUR NEXUS EVENT</p>
+                        <label for="decision-input">What are you considering?</label>
+                        <div class="nexus-input-wrap">
+                            <textarea id="decision-input" class="nexus-input" rows="4" maxlength="2000"
+                                placeholder="What if we build a chiplet-based AI accelerator?"
+                                aria-label="Enter your decision" aria-describedby="decision-help decision-error"></textarea>
+                        </div>
+                        <p id="decision-help" class="composer-help">Include who, what changes, and your goal. Your own questions are welcome.</p>
+                        <p id="decision-error" class="composer-error" role="alert" hidden></p>
+                        <button id="btn-open-multiverse" type="submit" class="btn-primary btn-lg">Explore my decision <span aria-hidden="true">↗</span></button>
+                        <p class="composer-note" id="decision-selection" aria-live="polite">Custom questions use AI. Examples use built-in models.</p>
+                    </form>
                 </div>
 
                 <!-- Unique Multiverse Scenario Deck (4 Distinct Sectors) -->
@@ -236,9 +260,9 @@
                     <div class="scenario-deck-header">
                         <div class="deck-title-line">
                             <span class="deck-pulse-dot"></span>
-                            <span class="deck-title">CHOOSE A PRE-CALCULATED NEXUS TIMELINE</span>
+                            <h2 class="deck-title">Or start with an example</h2>
                         </div>
-                        <span class="deck-badge">4 SCENARIO SECTORS</span>
+                        <span class="deck-badge">4 BUILT-IN MODELS</span>
                     </div>
 
                     <div class="preset-chips scenario-matrix" id="preset-chips">
@@ -311,10 +335,6 @@
                         </button>
                     </div>
                 </div>
-
-                <button id="btn-open-multiverse" class="btn-primary btn-lg" disabled>
-                    Open the Multiverse ▸
-                </button>
 
                 <!-- Prominent Legal & Governance Bar -->
                 <div class="home-disclosures-bar">
@@ -517,7 +537,7 @@
         <!-- HOW IT WORKS -->
         <section id="page-how" class="page">
             <div class="page-inner how-page">
-                <div class="how-header">
+                <div class="how-header info-glow-box">
                     <span class="section-tag text-cyan">SIMULATION ARCHITECTURE</span>
                     <h1 class="display-heading">From Question to Decision, <span class="text-cyan">in Six Steps</span>.</h1>
                     <p class="subheading">How our deterministic multiverse engine turns real-world uncertainty into decisive clarity.</p>
@@ -639,9 +659,11 @@
         <!-- MODEL & ASSUMPTIONS -->
         <section id="page-model" class="page">
             <div class="page-inner model-page">
-                <h1 class="display-heading">How the Watcher <span class="text-gold">calculates</span>.</h1>
-                <p class="model-body">Every timeline is produced by a transparent, rule-based model. Each constant below is an editable assumption. Change one and every branch recalculates.</p>
-                <div class="assumptions-list" id="model-assumptions"></div>
+                <div class="info-glow-box model-overview">
+                    <h1 class="display-heading">How the Watcher <span class="text-gold">calculates</span>.</h1>
+                    <p class="model-body">Built-in scenarios use explicit teaching models. Custom questions use AI-generated strategies and baseline scores, followed by deterministic adjustments. Adjust the controls on the Assumptions page to recalculate every branch.</p>
+                    <div class="assumptions-list" id="model-assumptions"></div>
+                </div>
                 <div class="disclaimer-card">
                     <p>⚠️ This is an illustrative model for exploring trade-offs. It is not a prediction, and its numbers should not be treated as forecasts.</p>
                 </div>

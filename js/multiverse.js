@@ -16,6 +16,7 @@ window.WhatIf.Multiverse = (function() {
   };
 
   function init() {
+    if (!window.WhatIf.Scenarios.current()) { window.WhatIf.navigate('analysis'); return; }
     renderSVG();
     renderCards();
     attachInteractions();
@@ -74,17 +75,15 @@ window.WhatIf.Multiverse = (function() {
     const container = document.getElementById('multiverse-branches');
     if (!container) return;
     
-    const presetName = window.WhatIf?.state?.currentPreset || 'hormuz';
-    const branchesData = window.WhatIf?.Presets?.[presetName]?.branches || {
-      A: { name: 'Wait & See', strategy: 'Buy on the spot market. Intervene later, if at all.' },
-      B: { name: 'Reserve + Reroute', strategy: 'Release strategic reserves in phases while shifting suppliers.' },
-      C: { name: 'Demand Shield', strategy: 'Cap fuel prices, push conservation, expand public transport.' }
-    };
+    const branchesData = window.WhatIf.Scenarios.current().branches;
+    const e = window.WhatIf.Scenarios.escapeHTML;
 
     container.innerHTML = '';
     ['A', 'B', 'C'].forEach(b => {
       const data = branchesData[b];
-      const card = document.createElement('div');
+      const card = document.createElement('button');
+      card.type = 'button';
+      card.setAttribute('aria-label', `Simulate timeline ${b}: ${data.name}`);
       card.className = 'mv-branch-card';
       card.dataset.branch = b;
       card.style.border = `1px solid ${COLORS['branch' + b]}`;
@@ -92,13 +91,15 @@ window.WhatIf.Multiverse = (function() {
       card.style.borderRadius = '10px';
       card.style.background = 'rgba(11, 16, 48, 0.75)';
       card.style.cursor = 'pointer';
+      card.style.textAlign = 'left';
+      card.style.fontFamily = 'inherit';
       card.style.transition = 'all 0.25s cubic-bezier(.2,.8,.2,1)';
       
       card.innerHTML = `
         <div class="mv-branch-title" style="color: ${COLORS['branch' + b]}; font-weight: 600; margin-bottom: 6px; font-size: 0.95rem;">
-          <span class="branch-shape shape-${b.toLowerCase()}">${BRANCH_SHAPES[b]}</span> Timeline ${b}: ${data.name}
+          <span class="branch-shape shape-${b.toLowerCase()}">${BRANCH_SHAPES[b]}</span> Timeline ${b}: ${e(data.name)}
         </div>
-        <div class="mv-branch-desc" style="color: #9AA3C7; font-size: 0.85rem; line-height: 1.5;">${data.strategy}</div>
+        <div class="mv-branch-desc" style="color: #9AA3C7; font-size: 0.85rem; line-height: 1.5;">${e(data.strategy)}</div>
       `;
 
       card.addEventListener('mouseenter', () => {

@@ -1,18 +1,15 @@
 window.WhatIf = window.WhatIf || {};
 
 window.WhatIf.Engine = {
-  simulate(presetId, sliderValues) {
-    if (presetId === 'hormuz' || !presetId) {
-      return this.simulateHormuz(sliderValues || {});
-    } else if (presetId === 'ev') {
-      return this.simulateEV(sliderValues || {});
-    } else if (presetId === 'fourday') {
-      return this.simulateFourDay(sliderValues || {});
-    } else if (presetId === 'carban') {
-      return this.simulateCarBan(sliderValues || {});
-    } else {
-      return this.simulateHormuz(sliderValues || {});
-    }
+  simulate(presetId, sliderValues = {}) {
+    const W = window.WhatIf;
+    const preset = presetId === 'custom' && W.state.currentPreset === 'custom' ? W.Scenarios.current() : Object.hasOwn(W.Presets, presetId) ? W.Presets[presetId] : null;
+    if (!preset) throw new Error('Choose a valid scenario before simulating.');
+    const values = W.Scenarios.values(preset, sliderValues);
+    const result = presetId === 'hormuz' ? this.simulateHormuz(values) : this.simulateDecision(preset, values);
+    result.radarDimensions = presetId === 'hormuz' ? preset.radarDimensions : ['Cost', 'Safety', 'Speed', 'Impact', 'Readiness', 'Resilience'];
+    result.chartLabel = Object.values(preset.kpiLabels)[0].label;
+    return result;
   },
 
   simulateHormuz(v) {
@@ -27,35 +24,20 @@ window.WhatIf.Engine = {
     // Branch A: Wait & See
     const aTimeSeries = this.generateHormuzTimeSeries(days, duration, 0, 0, globalSpike * 1.2);
     // Branch B: Reserve + Reroute
-    const bTimeSeries = this.generateHormuzTimeSeries(days, duration, reserveRate, altSuppliers, globalSpike * 0.5);
+    const bTimeSeries = this.generateHormuzTimeSeries(days, duration, reserveRate, altSuppliers, globalSpike * Math.max(0.15, 1 - reserveRate / 150 - altSuppliers / 100));
     // Branch C: Demand Shield
     const cTimeSeries = this.generateHormuzTimeSeries(days, duration, 0, 0, priceCap, true);
 
     const calcScores = (series, branch) => {
-      let costScore, riskScore, speedScore, impactScore;
-      
-      if (branch === 'A') {
-        costScore = 90; // low direct fiscal cost
-        riskScore = 20; // high public risk due to price spike
-        speedScore = 60; // market adjustment speed
-        impactScore = 30; // heavy burden on public
-      } else if (branch === 'B') {
-        costScore = 60; // moderate cost
-        
-        // Critical logic for Branch B failure at duration >= 60
-        // Reserves cover: (90 * reserveRate/100) = 45 days at 50%
-        const reservesRunOut = duration > 45;
-        
-        riskScore = reservesRunOut ? 28 : 82; 
-        speedScore = reservesRunOut ? 35 : 78;
-        impactScore = reservesRunOut ? 38 : 84; 
-      } else {
-        costScore = 15; // high fiscal cost
-        riskScore = 88; // low public risk
-        speedScore = 52;
-        impactScore = 80;
+      // Scores follow the series rather than ignoring the visible controls.
+      const costScore = Math.max(0, 100 - series.fiscalCost[90] / 1400);
+      let riskScore = Math.max(0, 100 - Math.max(...series.fuelPrice));
+      let speedScore = Math.max(0, 100 - duration * 0.5 + (branch === 'B' ? altSuppliers * 0.3 : 0));
+      let impactScore = Math.max(0, 100 - Math.max(...series.inflation) * 10 - (90 - Math.min(...series.buffer)) * 0.2);
+      if (branch === 'B' && duration > Math.floor(90 * reserveRate / 100)) {
+        riskScore *= 0.5; speedScore *= 0.6; impactScore *= 0.6;
       }
-      return { costScore, riskScore, speedScore, impactScore };
+      return Object.fromEntries(Object.entries({ costScore, riskScore, speedScore, impactScore }).map(([key, value]) => [key, Math.round(Math.min(100, value))]));
     };
 
     const aScores = calcScores(aTimeSeries, 'A');
@@ -73,15 +55,15 @@ window.WhatIf.Engine = {
             buffer: `${Math.min(...aTimeSeries.buffer).toFixed(0)}`,
             fiscal: `${Math.round(aTimeSeries.fiscalCost[90])}`,
             inflation: `+${(globalSpike * 1.2 * 0.05).toFixed(1)}`,
-            gdp: '-1.2',
-            publicRisk: '85'
+            gdp: (-Math.max(...aTimeSeries.inflation) * 0.4).toFixed(1),
+            publicRisk: String(100 - aScores.riskScore)
           },
           timeSeries: aTimeSeries,
-          radar: [85, 20, 15, 90, 25, 55],
+          radar: [aScores.costScore, aScores.riskScore, aScores.impactScore, aScores.costScore, aScores.riskScore, aScores.speedScore],
           narration: [
             `Prices peak sharply at +${(globalSpike * 1.2).toFixed(1)}%, triggering widespread industrial pushback.`,
             `No reserves released; fuel buffers deplete rapidly by day ${Math.min(90, Math.floor(duration * 0.7))}.`,
-            `The fiscal burden is minimal, but the economy suffers a -1.2% contraction in growth.`
+            `Fiscal and economic impacts here are simplified illustrations, not measured predictions.`
           ],
           benefits: ['Zero upfront treasury subsidy', 'Natural market-driven conservation'],
           risks: ['Severe inflation spike', 'Public outcry & transport strikes', 'Heavy industrial disruption'],
@@ -93,22 +75,22 @@ window.WhatIf.Engine = {
             fuelPrice: `+${Math.max(...bTimeSeries.fuelPrice).toFixed(1)}`,
             buffer: `${Math.min(...bTimeSeries.buffer).toFixed(0)}`,
             fiscal: `${Math.round(bTimeSeries.fiscalCost[90])}`,
-            inflation: `+${(globalSpike * 0.5 * 0.05).toFixed(1)}`,
-            gdp: duration > 45 ? '-0.9' : '-0.5',
-            publicRisk: bScores.riskScore > 50 ? '28' : '72'
+            inflation: `+${Math.max(...bTimeSeries.inflation).toFixed(1)}`,
+            gdp: (-Math.max(...bTimeSeries.inflation) * 0.4).toFixed(1),
+            publicRisk: String(100 - bScores.riskScore)
           },
           timeSeries: bTimeSeries,
-          radar: duration > 45 ? [55, 30, 45, 60, 40, 50] : [65, 80, 75, 65, 80, 85],
+          radar: [bScores.costScore, bScores.riskScore, bScores.impactScore, bScores.costScore, bScores.riskScore, bScores.speedScore],
           narration: [
             `Strategic reserves released at ${reserveRate}%, successfully softening the initial shock.`,
-            `Prices rise moderately to +${(globalSpike * 0.5).toFixed(1)}% as alternative shipments arrive.`,
-            duration > 45
+            `In this illustrative model, peak prices rise +${Math.max(...bTimeSeries.fuelPrice).toFixed(1)}% as alternative shipments arrive.`,
+            duration > Math.floor(90 * (reserveRate / 100))
               ? `In this timeline, reserves run dry on day ${reservesLastDay}, leading to supply rationing.`
               : `Strategic reserves comfortably cover the ${duration}-day closure window.`
           ],
           benefits: ['Balanced fiscal expenditure', 'Immediate stabilization of retail fuel prices', 'Protects vital logistics'],
           risks: [
-            duration > 45 ? 'Depletes national strategic reserves past the safety threshold' : 'Requires fast diplomatic and naval rerouting',
+            duration > Math.floor(90 * (reserveRate / 100)) ? 'Depletes national strategic reserves past the safety threshold' : 'Requires fast diplomatic and naval rerouting',
             'Logistical friction at alternate ports'
           ],
           tradeoffs: ['Relies heavily on finite national stockpiles to buy diplomatic time']
@@ -120,11 +102,11 @@ window.WhatIf.Engine = {
             buffer: `${Math.min(...cTimeSeries.buffer).toFixed(0)}`,
             fiscal: `${Math.round(cTimeSeries.fiscalCost[90])}`,
             inflation: `+${(priceCap * 0.05).toFixed(1)}`,
-            gdp: '-0.3',
-            publicRisk: '15'
+            gdp: (-Math.max(...cTimeSeries.inflation) * 0.4).toFixed(1),
+            publicRisk: String(100 - cScores.riskScore)
           },
           timeSeries: cTimeSeries,
-          radar: [25, 85, 90, 15, 92, 75],
+          radar: [cScores.costScore, cScores.riskScore, cScores.impactScore, cScores.costScore, cScores.riskScore, cScores.speedScore],
           narration: [
             `The fuel price cap shields consumers, but the national treasury absorbs ₹${Math.round(cTimeSeries.fiscalCost[90])} Cr in subsidies.`,
             `Consumer fuel inflation remains strictly pegged at +${priceCap}%.`,
@@ -149,8 +131,12 @@ window.WhatIf.Engine = {
     const reservesLastDay = Math.floor(90 * (reserveRate / 100));
 
     days.forEach(day => {
+      if (day === 0) {
+        fuelPrice.push(0); buffer.push(90); inflation.push(0); fiscalCost.push(0);
+        return;
+      }
       // Buffer calculation
-      if (day <= duration) {
+      if (day > 0 && day <= duration) {
         let drainRate = 1.0;
         if (reserveRate > 0) {
           drainRate = Math.max(0.2, 1.0 - (reserveRate / 100) - (altSuppliers / 100));
@@ -171,7 +157,7 @@ window.WhatIf.Engine = {
 
       // Price calculation
       let price = 0;
-      if (day <= duration) {
+      if (day > 0 && day <= duration) {
         price = isCapped ? priceImpact : (priceImpact * (0.4 + 0.6 * (day / duration)));
         if (reserveRate > 0 && day > reservesLastDay) {
           price += priceImpact * 0.7; // Late spike when reserves deplete
@@ -186,7 +172,7 @@ window.WhatIf.Engine = {
       inflation.push(parseFloat((price * 0.05).toFixed(2)));
 
       // Cumulative Fiscal Cost
-      if (day <= duration) {
+      if (day > 0 && day <= duration) {
         if (isCapped) {
           currentFiscal += 1400; // Heavy daily subsidy
         } else if (reserveRate > 0) {
@@ -201,144 +187,76 @@ window.WhatIf.Engine = {
     return { days, fuelPrice, buffer, inflation, fiscalCost };
   },
 
-  simulateEV(v) {
-    const stations = v.stations || 500;
-    const budget = v.budget || 50;
+  // These are explicit teaching heuristics, not calibrated empirical forecasts.
+  // Every control changes an outcome; values are clamped at the model boundary.
+  simulateDecision(preset, v) {
+    const clamp = n => Math.max(0, Math.min(100, n));
+    const keys = ['A', 'B', 'C'];
     const days = Array.from({ length: 91 }, (_, i) => i);
-    
-    const genSeries = (growthRate, costRate) => {
-      const fuelPrice = days.map(d => parseFloat((d * growthRate).toFixed(1)));
-      const buffer = days.map(d => Math.max(10, 100 - d * 0.4));
-      const inflation = days.map(d => parseFloat((d * 0.02).toFixed(1)));
-      const fiscalCost = days.map(d => Math.round(d * costRate));
-      return { days, fuelPrice, buffer, inflation, fiscalCost };
-    };
-
-    return {
-      branches: {
-        A: {
-          rawScores: { costScore: 85, riskScore: 70, speedScore: 40, impactScore: 50 },
-          kpis: { fuelPrice: '+18.5', buffer: '64', fiscal: `${Math.round(budget * 0.4 * 10)}`, inflation: '+0.4', gdp: '+0.2', publicRisk: '35' },
-          timeSeries: genSeries(0.2, budget * 0.1),
-          radar: [85, 75, 40, 90, 50, 60],
-          narration: ['Slow organic rollout minimizes upfront strain on municipal grid.'],
-          benefits: ['Lower financial risk', 'Allows iterative site learning'],
-          risks: ['Delays EV adoption goals', 'Public frustration at slow speed'],
-          tradeoffs: ['Safety and cost savings prioritized over speed']
-        },
-        B: {
-          rawScores: { costScore: 65, riskScore: 80, speedScore: 75, impactScore: 80 },
-          kpis: { fuelPrice: '+38.0', buffer: '78', fiscal: `${Math.round(budget * 0.8 * 10)}`, inflation: '+0.8', gdp: '+0.6', publicRisk: '22' },
-          timeSeries: genSeries(0.42, budget * 0.25),
-          radar: [70, 85, 75, 65, 80, 85],
-          narration: ['Mega-hubs consolidate power infrastructure near major arterials.'],
-          benefits: ['High charger reliability', 'Efficient grid interconnection'],
-          risks: ['Uneven neighborhood access', 'Potential peak grid queues'],
-          tradeoffs: ['Focuses on volume hubs rather than universal coverage']
-        },
-        C: {
-          rawScores: { costScore: 35, riskScore: 60, speedScore: 90, impactScore: 92 },
-          kpis: { fuelPrice: '+55.2', buffer: '88', fiscal: `${Math.round(budget * 1.3 * 10)}`, inflation: '+1.4', gdp: '+0.9', publicRisk: '18' },
-          timeSeries: genSeries(0.61, budget * 0.45),
-          radar: [35, 60, 95, 30, 90, 75],
-          narration: ['Rapid full city coverage drives swift consumer adoption.'],
-          benefits: ['Universal equity and access', 'Fastest EV adoption spike'],
-          risks: ['High civil excavation costs', 'Substation capacity overload risk'],
-          tradeoffs: ['Aggressive capital investment to achieve instant leadership']
-        }
-      }
-    };
-  },
-
-  simulateFourDay(v) {
-    const days = Array.from({ length: 91 }, (_, i) => i);
-    const genSeries = (prod, satisfaction) => ({
-      days,
-      fuelPrice: days.map(d => parseFloat((15 + d * prod).toFixed(1))),
-      buffer: days.map(d => Math.max(20, 80 + d * satisfaction)),
-      inflation: days.map(d => parseFloat((d * 0.01).toFixed(1))),
-      fiscalCost: days.map(d => Math.round(d * 25))
+    const branches = {};
+    keys.forEach((key, index) => {
+      const b = preset.branches[key];
+      const intensity = [0.45, 0.75, 1][index];
+      let metrics, scores;
+      if (preset.id === 'ev') {
+        const coverage = v.stations / 500;
+        const spend = v.stations * 0.08 * intensity;
+        const pressure = coverage * intensity * 35 / v.gridCapacity;
+        const adoption = clamp((12 + v.incentive * 0.3) * intensity * coverage / Math.sqrt(v.timeline));
+        const utilization = clamp(45 + adoption * 0.5 - coverage * 5);
+        const safety = clamp(100 - pressure * 18);
+        const cost = clamp(100 - spend / v.budget * 40);
+        const speed = clamp(100 - v.timeline * 7 + intensity * 10);
+        const satisfaction = clamp(adoption + safety * 0.45);
+        metrics = [adoption, clamp(55 + pressure * 20), spend, utilization, adoption * 0.8 - spend * 0.1, satisfaction];
+        scores = [cost, safety, speed, satisfaction];
+      } else if (preset.id === 'fourday') {
+        const scale = Math.log10(v.teamSize / 50 + 1);
+        const preparation = Math.min(25, v.transitionWeeks * 0.5);
+        const coveragePenalty = (v.clientCoverage - 5) * 12;
+        const burnout = clamp(35 + [0, 20, -18][index] + scale * 5 - preparation * 0.4 - v.hiringBudget * 0.2);
+        const retention = clamp(85 + intensity * 10 - v.salaryImpact * 0.8 - burnout * 0.12);
+        const clientSat = clamp(90 - coveragePenalty * intensity - scale * 4 + v.hiringBudget * 0.4 + preparation * 0.2);
+        const productivity = 100 + preparation * 0.3 + v.hiringBudget * 0.15 - burnout * 0.15 - coveragePenalty * 0.2;
+        const payroll = v.hiringBudget * intensity - v.salaryImpact;
+        metrics = [productivity, retention, clientSat, payroll, burnout, (productivity - 100) * 0.6 + (clientSat - 80) * 0.2 - payroll * 0.3];
+        scores = [clamp(85 - payroll), clamp((100 - burnout + clientSat) / 2), clamp(100 - v.transitionWeeks + intensity * 10), clamp((retention + clientSat + productivity) / 3)];
+      } else if (preset.id === 'carban') {
+        const coverage = v.zoneRadius * intensity * (1 - v.exemptions / 100);
+        const enforcement = v.enforcementLevel / 10;
+        const transit = v.transitBudget / 10;
+        const reduction = Math.min(95, coverage * enforcement * 12);
+        const crowding = clamp(45 + coverage * 10 - transit * 0.8);
+        const footfall = coverage * 7 - crowding * 0.1 + transit * 0.1;
+        const commute = coverage * 2 - transit * 0.2;
+        const approval = clamp(60 + reduction * 0.3 + footfall * 0.3 - crowding * 0.3 + v.timeline * 0.2);
+        metrics = [-reduction, footfall, commute, crowding, coverage * enforcement * 5, approval];
+        scores = [clamp(95 - v.transitBudget / 10 - v.enforcementLevel * intensity), clamp(100 - crowding), clamp(100 - v.timeline * 1.8 + enforcement * 10), approval];
+      } else if (preset.id === 'custom') {
+        const base = b.scores;
+        const resources = (v.resources - 50) / 50;
+        const uncertainty = (v.uncertainty - 50) / 50;
+        const pace = (v.pace - 50) / 50;
+        scores = [clamp(base.costScore + resources * 12 - pace * 8 * intensity),
+          clamp(base.riskScore - uncertainty * 20 - pace * 8 * intensity),
+          clamp(base.speedScore + pace * 20 + resources * 8),
+          clamp(base.impactScore + resources * 15 - uncertainty * 10)];
+        metrics = [...scores, clamp((scores[1] + scores[2]) / 2), clamp(60 - uncertainty * 20)];
+      } else { throw new Error('Unknown scenario.'); }
+      const rounded = metrics.map(n => Number(n.toFixed(1)));
+      const rawScores = Object.fromEntries(['costScore', 'riskScore', 'speedScore', 'impactScore'].map((name, i) => [name, Math.round(scores[i])]));
+      const baseline = preset.id === 'fourday' ? 100 : 0;
+      branches[key] = {
+        rawScores,
+        kpis: Object.fromEntries(['fuelPrice', 'buffer', 'fiscal', 'inflation', 'gdp', 'publicRisk'].map((name, i) => [name, String(rounded[i])])),
+        timeSeries: { days, fuelPrice: days.map(day => Number((baseline + (rounded[0] - baseline) * day / 90).toFixed(1))) },
+        radar: [...scores.map(clamp), clamp((scores[1] + scores[2]) / 2), preset.id === 'custom' ? rounded[5] : clamp((scores[0] + scores[3]) / 2)],
+        narration: [`${b.strategy} These values are illustrative model outputs, not forecasts.`],
+        benefits: b.benefits || [`${b.name} provides ${Math.round(scores[3])}/100 illustrative impact under these assumptions.`],
+        risks: b.risks || [`Execution and resource constraints affect ${b.name.toLowerCase()}; safety score is ${Math.round(scores[1])}/100.`],
+        tradeoffs: b.tradeoffs || [`Cost efficiency ${Math.round(scores[0])}/100 versus delivery speed ${Math.round(scores[2])}/100.`]
+      };
     });
-
-    return {
-      branches: {
-        A: {
-          rawScores: { costScore: 90, riskScore: 75, speedScore: 50, impactScore: 60 },
-          kpis: { fuelPrice: '+12.0', buffer: '72', fiscal: '450', inflation: '+0.2', gdp: '+0.1', publicRisk: '25' },
-          timeSeries: genSeries(0.12, 0.1),
-          radar: [90, 75, 55, 90, 60, 65],
-          narration: ['Departmental pilot offers safe benchmark data without company-wide shock.'],
-          benefits: ['Controlled low-risk trial', 'Immediate feedback loop'],
-          risks: ['Cross-team scheduling friction', 'Prolonged uncertainty'],
-          tradeoffs: ['Reduces organizational disruption at the expense of unified culture']
-        },
-        B: {
-          rawScores: { costScore: 70, riskScore: 55, speedScore: 70, impactScore: 65 },
-          kpis: { fuelPrice: '+5.5', buffer: '65', fiscal: '820', inflation: '+0.4', gdp: '+0.3', publicRisk: '45' },
-          timeSeries: genSeries(0.06, -0.05),
-          radar: [70, 50, 70, 70, 65, 60],
-          narration: ['Ten-hour days preserve weekly output, but staff report mid-week fatigue.'],
-          benefits: ['Maintains 40 client hours', 'No immediate hiring expansion required'],
-          risks: ['Employee fatigue on 10-hour days', 'Decreased afternoon productivity'],
-          tradeoffs: ['Preserves traditional work volume with altered daily rhythm']
-        },
-        C: {
-          rawScores: { costScore: 50, riskScore: 70, speedScore: 85, impactScore: 95 },
-          kpis: { fuelPrice: '+22.4', buffer: '92', fiscal: '1450', inflation: '+0.6', gdp: '+0.7', publicRisk: '12' },
-          timeSeries: genSeries(0.24, 0.2),
-          radar: [55, 92, 85, 50, 95, 80],
-          narration: ['32-hour standard unlocks massive retention and sharp productivity gains.'],
-          benefits: ['Dramatic drop in burnout', 'Record employee retention and talent pull'],
-          risks: ['Requires tighter meeting hygiene', 'Higher hiring budget for client support'],
-          tradeoffs: ['Invests in wage efficiency and output density over total seated hours']
-        }
-      }
-    };
-  },
-
-  simulateCarBan(v) {
-    const days = Array.from({ length: 91 }, (_, i) => i);
-    const genSeries = (emissReduction, footGain) => ({
-      days,
-      fuelPrice: days.map(d => parseFloat((d * footGain).toFixed(1))),
-      buffer: days.map(d => Math.max(10, 100 - d * emissReduction)),
-      inflation: days.map(d => parseFloat((d * 0.015).toFixed(1))),
-      fiscalCost: days.map(d => Math.round(d * 40))
-    });
-
-    return {
-      branches: {
-        A: {
-          rawScores: { costScore: 88, riskScore: 75, speedScore: 60, impactScore: 62 },
-          kpis: { fuelPrice: '+14.2', buffer: '78', fiscal: '580', inflation: '+0.1', gdp: '+0.2', publicRisk: '20' },
-          timeSeries: genSeries(0.22, 0.15),
-          radar: [88, 75, 60, 85, 65, 70],
-          narration: ['Weekend pedestrianization boosts cafe and leisure trade with minimal commute disruption.'],
-          benefits: ['Instant public weekend adoption', 'Very low enforcement cost'],
-          risks: ['Minimal weekday emissions change', 'Does not solve weekday gridlock'],
-          tradeoffs: ['Provides lifestyle amenity without reforming primary commute corridors']
-        },
-        B: {
-          rawScores: { costScore: 65, riskScore: 55, speedScore: 70, impactScore: 70 },
-          kpis: { fuelPrice: '+6.5', buffer: '62', fiscal: '1200', inflation: '+0.3', gdp: '+0.3', publicRisk: '38' },
-          timeSeries: genSeries(0.38, 0.08),
-          radar: [65, 60, 70, 65, 68, 65],
-          narration: ['Rush hour restrictions ease congestion peaks but create perimeter bottlenecking.'],
-          benefits: ['Targeted peak traffic mitigation', 'Encourages public transit shift'],
-          risks: ['Spillover traffic into residential rings', 'Confusion on exact ban windows'],
-          tradeoffs: ['Targets congestion spikes but complicates enforcement rules']
-        },
-        C: {
-          rawScores: { costScore: 40, riskScore: 80, speedScore: 85, impactScore: 92 },
-          kpis: { fuelPrice: '+32.8', buffer: '35', fiscal: '2400', inflation: '+0.5', gdp: '+0.8', publicRisk: '16' },
-          timeSeries: genSeries(0.65, 0.35),
-          radar: [45, 90, 85, 40, 92, 85],
-          narration: ['Full pedestrian zone converts downtown into a vibrant, high-value commercial corridor.'],
-          benefits: ['65% drop in street-level emissions', 'Substantial retail and restaurant surge'],
-          risks: ['Logistics and freight delivery hurdles', 'Requires major park-and-ride investment'],
-          tradeoffs: ['Sacrifices private vehicular access for long-term urban livability']
-        }
-      }
-    };
+    return { branches };
   }
 };

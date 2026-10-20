@@ -93,7 +93,7 @@ window.WhatIf.Charts = (function() {
     const maxVal = Math.max(...allValues);
     const minVal = Math.min(...allValues);
     const range = maxVal - minVal || 1;
-    const yMin = Math.max(0, minVal - range * 0.1); 
+    const yMin = minVal - range * 0.1;
     const yMax = maxVal + range * 0.1;
 
     // Draw background
@@ -297,7 +297,7 @@ window.WhatIf.Charts = (function() {
     const centerY = height / 2;
     const radius = Math.min(width, height) / 2 - 40; // padding
 
-    const axes = ['Cost', 'Supply', 'Price stability', 'Fiscal', 'Political', 'Recovery'];
+    const axes = data.radarDimensions || ['Cost', 'Supply', 'Price stability', 'Fiscal', 'Political', 'Recovery'];
     const numAxes = axes.length;
     const angleStep = (Math.PI * 2) / numAxes;
 

@@ -16,73 +16,55 @@
   /**
    * Generates or retrieves the persistent machine/system recognition ID.
    */
+  let memory = [];
+  let memoryOnly = false;
+  let systemId = null;
   function getSystemId() {
-    let sysId = localStorage.getItem(SYSTEM_ID_KEY);
-    if (!sysId) {
-      const randHex = Math.floor(Math.random() * 0xFFFFFF).toString(16).toUpperCase().padStart(6, '0');
-      sysId = `NEXUS-NODE-${randHex}`;
-      localStorage.setItem(SYSTEM_ID_KEY, sysId);
+    if (systemId) return systemId;
+    try { systemId = localStorage.getItem(SYSTEM_ID_KEY); } catch { /* Memory-only mode. */ }
+    if (!/^NEXUS-NODE-[A-F0-9]{6}$/.test(systemId || '')) {
+      systemId = 'NEXUS-NODE-' + Math.floor(Math.random() * 0xFFFFFF).toString(16).toUpperCase().padStart(6, '0');
+      try { localStorage.setItem(SYSTEM_ID_KEY, systemId); } catch { /* Optional persistence. */ }
     }
-    return sysId;
+    return systemId;
   }
 
-  /**
-   * Retrieve all recorded history entries.
-   */
+  function validateEntry(entry) {
+    if (!entry || typeof entry !== 'object' || !/^SIM-[A-Za-z0-9-]{1,80}$/.test(entry.id || '') ||
+        typeof entry.prompt !== 'string' || entry.prompt.length < 6 || entry.prompt.length > 2000) return null;
+    const result = {};
+    for (const key of ['id', 'timestamp', 'prompt', 'presetKey', 'presetTitle', 'sector', 'winnerBranch', 'score', 'variables', 'verdict', 'notes']) {
+      if (entry[key] !== undefined && (typeof entry[key] !== 'string' || entry[key].length > 4000)) return null;
+      result[key] = entry[key] || '';
+    }
+    const W = window.WhatIf;
+    try {
+      if (result.presetKey === 'custom') {
+        result.customScenario = W.Scenarios.validateCustom(entry.customScenario);
+      } else if (!Object.hasOwn(W.Presets, result.presetKey)) return null;
+    } catch { return null; }
+    result.sliderValues = entry.sliderValues && typeof entry.sliderValues === 'object' ?
+      Object.fromEntries(Object.entries(entry.sliderValues).filter(([key, value]) =>
+        /^[a-zA-Z][a-zA-Z0-9]{0,40}$/.test(key) && typeof value === 'number' && Number.isFinite(value))) : {};
+    result.priorities = W.Scenarios.priorities(entry.priorities);
+    return result;
+  }
+
   function getAllEntries() {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        return JSON.parse(raw);
-      }
-    } catch (e) {
-      console.warn('Could not read history from localStorage:', e);
-    }
-
-    // Default pre-seeded system memory if brand new
-    const initialRecords = [
-      {
-        id: 'SIM-9X41',
-        timestamp: new Date(Date.now() - 3600000 * 2).toLocaleString('en-US', {
-          month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
-        }),
-        prompt: "India responds to a 30-day oil-chokepoint disruption",
-        presetKey: "hormuz",
-        presetTitle: "The Strait Closes",
-        sector: "SECTOR 01 · GEOPOLITICS",
-        winnerBranch: "Branch B (Reserve + Reroute)",
-        score: "78/100",
-        variables: "Closure: 30 days · Reserve Rate: 50% · Alt Suppliers: 15%",
-        verdict: "Timeline B leads with 78/100. Smooths the retail spike, but depletes buffers by day 41 if extended.",
-        notes: "System recommendation: High stability under 30-day window; flips to Branch C if duration exceeds 60 days."
-      },
-      {
-        id: 'SIM-7B22',
-        timestamp: new Date(Date.now() - 3600000 * 24).toLocaleString('en-US', {
-          month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
-        }),
-        prompt: "A company switches to a 4-day work week",
-        presetKey: "fourday",
-        presetTitle: "The 4-Day Week",
-        sector: "SECTOR 03 · WORKFORCE",
-        winnerBranch: "Branch A (Pilot Program)",
-        score: "82/100",
-        variables: "Transition: 12 weeks · Coverage: 95% · Team: 150",
-        verdict: "Pilot strategy preserves output while benchmarking client satisfaction before full commitment.",
-        notes: "System recommendation: Implement department-by-department rotation."
-      }
-    ];
-
-    saveEntries(initialRecords);
-    return initialRecords;
+      const raw = memoryOnly ? null : localStorage.getItem(STORAGE_KEY);
+      if (raw && raw.length <= 2 * 1024 * 1024) {
+        const parsed = JSON.parse(raw);
+        memory = Array.isArray(parsed) ? parsed.slice(0, 50).map(validateEntry).filter(Boolean) : [];
+      } else if (!memoryOnly) memory = [];
+    } catch { memoryOnly = true; }
+    return memory.slice();
   }
 
   function saveEntries(entries) {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
-    } catch (e) {
-      console.warn('Failed to save to localStorage:', e);
-    }
+    memory = entries.slice(0, 50).map(validateEntry).filter(Boolean);
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(memory)); memoryOnly = false; }
+    catch { memoryOnly = true; }
   }
 
   /**
@@ -91,7 +73,7 @@
   function recordSimulation(data) {
     const entries = getAllEntries();
     const newEntry = {
-      id: 'SIM-' + Math.floor(Math.random() * 0xFFFF).toString(16).toUpperCase().padStart(4, '0'),
+      id: 'SIM-' + (window.WhatIf.state.runId || Date.now().toString(36)),
       timestamp: new Date().toLocaleString('en-US', {
         month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
       }),
@@ -103,10 +85,15 @@
       score: data.score || "75/100",
       variables: data.variables || formatCurrentSliders(),
       verdict: data.verdict || "Simulation calculated across all 3 multiverse branches.",
-      notes: data.notes || "Logged into permanent system memory for this terminal."
+      notes: data.notes || 'Saved in this browser when storage is available.',
+      sliderValues: { ...window.WhatIf.state.sliderValues },
+      priorities: window.WhatIf.Scenarios.priorities(window.WhatIf.state.priorities),
+      customScenario: window.WhatIf.state.currentPreset === 'custom' ? window.WhatIf.state.customScenario : undefined
     };
 
     // Prepend new entry
+    const existing = entries.findIndex(entry => entry.id === newEntry.id);
+    if (existing >= 0) entries.splice(existing, 1);
     entries.unshift(newEntry);
     if (entries.length > 50) entries.pop(); // Keep last 50
     saveEntries(entries);
@@ -131,8 +118,11 @@
     const entry = entries.find(e => e.id === id);
     if (!entry) return;
 
-    window.WhatIf.state.decision = entry.prompt;
-    window.WhatIf.state.currentPreset = entry.presetKey;
+    const W = window.WhatIf;
+    W.Scenarios.start(entry.prompt, entry.presetKey, entry.customScenario);
+    W.state.runId = entry.id.replace(/^SIM-/, '');
+    W.state.sliderValues = W.Scenarios.values(W.Scenarios.current(), entry.sliderValues);
+    W.state.priorities = W.Scenarios.priorities(entry.priorities);
     
     // Set input on home if present
     const input = document.getElementById('decision-input');
@@ -179,9 +169,18 @@
     if (systemIdEl) systemIdEl.textContent = sysId;
 
     const entries = getAllEntries();
-    if (systemCountEl) systemCountEl.textContent = `${entries.length} SESSIONS SAVED`;
+    if (systemCountEl) systemCountEl.textContent = `${entries.length} SESSIONS ${memoryOnly ? 'IN MEMORY (STORAGE UNAVAILABLE)' : 'SAVED'}`;
 
     if (!container) return;
+    const page = document.getElementById('page-history');
+    if (page) {
+      page.querySelector('.history-subheading').textContent = 'Your last 50 simulation records are stored in this browser profile when storage is available. This is a random browser ID, not hardware recognition or an account. Custom questions are also sent to Google Gemini.';
+      page.querySelector('.sys-rec-title').textContent = 'LOCAL BROWSER HISTORY';
+      const items = page.querySelectorAll('.sys-rec-item');
+      items[1].querySelector('.rec-val').textContent = 'SHARED WITH THIS BROWSER PROFILE';
+      items[3].querySelector('.rec-label').textContent = 'CUSTOM QUESTION PROCESSING';
+      items[3].querySelector('.rec-val').textContent = 'GOOGLE GEMINI VIA SERVER';
+    }
 
     if (entries.length === 0) {
       container.innerHTML = `
@@ -203,14 +202,14 @@
     let html = '';
     entries.forEach(entry => {
       html += `
-        <article class="history-card" data-sim-id="${entry.id}">
+        <article class="history-card" data-sim-id="${escapeHtml(entry.id)}">
           <div class="history-card-header">
             <div class="history-meta-left">
-              <span class="history-id-badge">${entry.id}</span>
-              <span class="history-time">${entry.timestamp}</span>
-              <span class="history-sector-badge">${entry.sector}</span>
+              <span class="history-id-badge">${escapeHtml(entry.id)}</span>
+              <span class="history-time">${escapeHtml(entry.timestamp)}</span>
+              <span class="history-sector-badge">${escapeHtml(entry.sector)}</span>
             </div>
-            <button class="history-delete-btn" data-delete-id="${entry.id}" title="Remove this record">✕</button>
+            <button class="history-delete-btn" data-delete-id="${escapeHtml(entry.id)}" title="Remove this record">✕</button>
           </div>
 
           <div class="history-prompt-block">
@@ -239,8 +238,8 @@
           </div>
 
           <div class="history-card-footer">
-            <span class="history-memory-tag">● PERSISTED ON SYSTEM TERMINAL</span>
-            <button class="btn-secondary btn-sm history-reload-btn" data-reload-id="${entry.id}">
+            <span class="history-memory-tag">● ${memoryOnly ? 'IN MEMORY ONLY' : 'SAVED IN THIS BROWSER'}</span>
+            <button class="btn-secondary btn-sm history-reload-btn" data-reload-id="${escapeHtml(entry.id)}">
               ↺ RELOAD TIMELINE ▸
             </button>
           </div>
@@ -274,7 +273,7 @@
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
   // Export module API

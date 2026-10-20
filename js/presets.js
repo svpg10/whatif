@@ -1,3 +1,5 @@
+(function(window) {
+'use strict';
 window.WhatIf = window.WhatIf || {};
 window.WhatIf.state = window.WhatIf.state || {
   currentPreset: null,
@@ -5,6 +7,90 @@ window.WhatIf.state = window.WhatIf.state || {
   simulationResults: null,
   priorities: { cost: 50, risk: 50, speed: 50, impact: 50 }
 };
+
+const W = window.WhatIf;
+const KEYS = ['A', 'B', 'C'];
+const SCORE_KEYS = ['costScore', 'riskScore', 'speedScore', 'impactScore'];
+const plainObject = value => value && typeof value === 'object' && !Array.isArray(value);
+function text(value, max = 600) {
+  if (typeof value !== 'string' || !value.trim() || value.length > max || /[\x00-\x08\x0b\x0c\x0e-\x1f]/.test(value)) {
+    throw new Error('Invalid scenario text');
+  }
+  return value.trim();
+}
+function list(value) {
+  if (!Array.isArray(value) || value.length < 1 || value.length > 5) throw new Error('Invalid scenario list');
+  return value.map(item => text(item));
+}
+function validateCustom(value) {
+  if (!plainObject(value) || !plainObject(value.branches)) throw new Error('Invalid scenario');
+  const result = { title: text(value.title, 120), problem: text(value.problem),
+    stakeholders: list(value.stakeholders), assumptions: list(value.assumptions), branches: {} };
+  for (const key of KEYS) {
+    const branch = value.branches[key];
+    if (!plainObject(branch) || !plainObject(branch.scores)) throw new Error('Invalid branch');
+    const scores = {};
+    for (const score of SCORE_KEYS) {
+      const n = branch.scores[score];
+      if (typeof n !== 'number' || !Number.isFinite(n) || n < 0 || n > 100) throw new Error('Invalid score');
+      scores[score] = n;
+    }
+    result.branches[key] = { name: text(branch.name, 80), strategy: text(branch.strategy), scores,
+      benefits: list(branch.benefits), risks: list(branch.risks), tradeoffs: list(branch.tradeoffs) };
+  }
+  return result;
+}
+function current() {
+  const state = W.state;
+  if (state.currentPreset === 'custom') {
+    if (!state.customScenario) return null;
+    const scenario = validateCustom(state.customScenario);
+    return { ...scenario, id: 'custom', decision: state.decision, branches: Object.fromEntries(KEYS.map((key, i) =>
+      [key, { ...scenario.branches[key], shape: ['●', '◆', '▲'][i] }])),
+      sliders: [
+        { id: 'resources', label: 'Resource availability', min: 0, max: 100, step: 5, default: 50, unit: '%' },
+        { id: 'uncertainty', label: 'External uncertainty', min: 0, max: 100, step: 5, default: 50, unit: '%' },
+        { id: 'pace', label: 'Execution pace', min: 0, max: 100, step: 5, default: 50, unit: '%' }
+      ],
+      kpiLabels: Object.fromEntries(['Cost efficiency', 'Safety', 'Delivery progress', 'Impact', 'Readiness', 'Resilience'].map((label, i) =>
+        [['fuelPrice', 'buffer', 'fiscal', 'inflation', 'gdp', 'publicRisk'][i], { label, unit: '/100' }])),
+      radarDimensions: ['Cost', 'Safety', 'Speed', 'Impact', 'Readiness', 'Resilience'] };
+  }
+  return Object.hasOwn(W.Presets, state.currentPreset) ? W.Presets[state.currentPreset] : null;
+}
+function values(preset, input = {}) {
+  if (!plainObject(input)) input = {};
+  const result = {};
+  for (const slider of preset.sliders) {
+    const value = input[slider.id];
+    const n = typeof value === 'number' && Number.isFinite(value) ? value : slider.default;
+    result[slider.id] = Math.max(slider.min, Math.min(slider.max,
+      slider.min + Math.round((n - slider.min) / slider.step) * slider.step));
+  }
+  return result;
+}
+function start(decision, presetKey = null, customScenario = null) {
+  if (presetKey !== 'custom' && !Object.hasOwn(W.Presets, presetKey)) throw new Error('Unknown scenario');
+  const validatedDecision = text(decision, 2000);
+  const validatedScenario = presetKey === 'custom' ? validateCustom(customScenario) : null;
+  W.state.decision = validatedDecision;
+  W.state.currentPreset = presetKey;
+  W.state.customScenario = validatedScenario;
+  W.state.sliderValues = {};
+  W.state.simulationResults = null;
+  W.state.priorities = { cost: 50, risk: 50, speed: 50, impact: 50 };
+  W.state.activeBranch = 'A';
+  W.state.runId = Date.now().toString(36) + Math.random().toString(36).slice(2);
+}
+const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, char =>
+  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
+function priorities(input = {}) {
+  if (!plainObject(input)) input = {};
+  return Object.fromEntries(['cost', 'risk', 'speed', 'impact'].map(key =>
+    [key, typeof input[key] === 'number' && Number.isFinite(input[key]) ? Math.max(0, Math.min(100, input[key])) : 50]));
+}
+W.Scenarios = { validateCustom, current, values, start, escapeHTML, priorities };
+if (typeof module !== 'undefined' && module.exports) module.exports = W.Scenarios;
 
 window.WhatIf.Presets = {
   hormuz: {
@@ -120,3 +206,4 @@ window.WhatIf.Presets = {
     radarDimensions: ['Environment', 'Local Business', 'Commuter Ease', 'Public Transit', 'Enforcement Cost', 'Public Support']
   }
 };
+})(typeof window !== 'undefined' ? window : {});

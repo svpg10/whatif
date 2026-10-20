@@ -18,10 +18,12 @@ let isNavigating = false;
 window.WhatIf.navigate = function(pageName, options = {}) {
   if (!pageName) pageName = 'home';
   pageName = pageName.replace(/^#/, '');
+  if (pageName !== 'analysis' && window.WhatIf.Analysis) window.WhatIf.Analysis.controller?.abort();
+  if (['multiverse', 'simulate', 'compare'].includes(pageName) && !window.WhatIf.Scenarios.current()) pageName = 'analysis';
 
   // STRICT INTRO GUARD:
   // If the user has not completed the intro sequence, they CANNOT access any internal pages.
-  const introPlayed = window.WhatIf.introPlayed || (sessionStorage.getItem('whatif-intro-played') === 'true');
+  const introPlayed = window.WhatIf.introPlayed;
   const overlay = document.getElementById('intro-overlay');
   const isIntroOverlayVisible = overlay && overlay.style.display !== 'none' && !overlay.hasAttribute('hidden');
 
@@ -90,6 +92,7 @@ window.WhatIf.navigate = function(pageName, options = {}) {
   } else if (pageName === 'model') {
     window.WhatIf.renderModelPage();
   }
+  window.WhatIf.UI?.update(pageName);
 
   window.scrollTo({ top: 0, behavior: 'smooth' });
 };
@@ -98,7 +101,9 @@ window.WhatIf.renderModelPage = function() {
   const container = document.getElementById('model-assumptions');
   if (!container) return;
   
-  const preset = window.WhatIf.Presets[window.WhatIf.state.currentPreset] || window.WhatIf.Presets.hormuz;
+  const preset = window.WhatIf.Scenarios.current();
+  if (!preset) { container.textContent = 'Choose a scenario to view its assumptions.'; return; }
+  const e = window.WhatIf.Scenarios.escapeHTML;
   const sVals = window.WhatIf.state.sliderValues || {};
 
   let html = '';
@@ -106,8 +111,8 @@ window.WhatIf.renderModelPage = function() {
     const val = sVals[s.id] !== undefined ? sVals[s.id] : s.default;
     html += `
       <div class="assumption-item">
-        <span class="assumption-name">${s.label}</span>
-        <span class="assumption-val">${val} ${s.unit}</span>
+        <span class="assumption-name">${e(s.label)}</span>
+        <span class="assumption-val">${e(val)} ${e(s.unit)}</span>
       </div>
     `;
   });
@@ -129,6 +134,8 @@ window.WhatIf.Drawer = {
     if (sysIdEl && window.WhatIf.History) {
       sysIdEl.textContent = window.WhatIf.History.getSystemId();
     }
+    const status = drawer.querySelector('.drawer-sys-status');
+    if (status) status.textContent = '● LOCAL BROWSER PROFILE · NO ACCOUNT';
 
     this._isOpen = true;
     drawer.removeAttribute('hidden');
@@ -170,9 +177,10 @@ window.WhatIf.Drawer = {
 document.addEventListener('DOMContentLoaded', () => {
   // Ensure default state
   window.WhatIf.state = window.WhatIf.state || {};
-  if (!window.WhatIf.state.currentPreset) {
-    window.WhatIf.state.currentPreset = 'hormuz';
-  }
+  // Styles load in the document head to avoid a flash of the old layout.
+  const uiScript = document.createElement('script');
+  uiScript.src = 'js/app-ui.js';
+  document.head.appendChild(uiScript);
 
   // Wire 3-line hamburger menu toggle button
   const menuToggle = document.getElementById('nav-menu-toggle');
@@ -216,7 +224,8 @@ document.addEventListener('DOMContentLoaded', () => {
     e.preventDefault();
     const page = navEl.getAttribute('data-nav');
     if (navEl.hasAttribute('data-preset')) {
-      window.WhatIf.state.currentPreset = navEl.getAttribute('data-preset');
+      const key = navEl.getAttribute('data-preset');
+      if (Object.hasOwn(window.WhatIf.Presets, key)) window.WhatIf.Scenarios.start(window.WhatIf.Presets[key].decision, key);
     }
 
     // If clicked inside drawer, close it
@@ -249,7 +258,7 @@ document.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('hashchange', () => {
     if (isNavigating) return;
     const page = (window.location.hash || '').replace('#', '');
-    if (page) {
+    if (page && document.getElementById(`page-${page}`)) {
       window.WhatIf.navigate(page, { fromHashChange: true });
     }
   });

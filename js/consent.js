@@ -6,10 +6,11 @@
 (function () {
   'use strict';
 
-  const PRIVACY_VERSION = '1.0';
-  const DISCLAIMER_VERSION = '1.0';
+  const PRIVACY_VERSION = '1.1';
+  const DISCLAIMER_VERSION = '1.1';
 
   let pendingCallback = null;
+  let previousFocus = null;
 
   /**
    * Show the consent modal. Calls `callback` only if both boxes are checked.
@@ -20,7 +21,8 @@
   function showConsent(callback, forceShow) {
     // If already consented this session and not forced, proceed
     if (!forceShow) {
-      const existing = sessionStorage.getItem('whatif-consent');
+      let existing = null;
+      try { existing = sessionStorage.getItem('whatif-consent'); } catch { /* Ask again if storage is unavailable. */ }
       if (existing) {
         try {
           const record = JSON.parse(existing);
@@ -35,7 +37,6 @@
     pendingCallback = callback || null;
     const modal = document.getElementById('consent-modal');
     if (!modal) {
-      if (typeof callback === 'function') callback();
       return;
     }
 
@@ -51,7 +52,9 @@
       continueBtn.setAttribute('aria-disabled', 'true');
     }
 
+    previousFocus = document.activeElement;
     modal.removeAttribute('hidden');
+    modal.setAttribute('tabindex', '-1');
     modal.focus();
   }
 
@@ -72,12 +75,14 @@
       disclaimerVersion: DISCLAIMER_VERSION,
       timestamp: new Date().toISOString()
     };
-    sessionStorage.setItem('whatif-consent', JSON.stringify(record));
+    try { sessionStorage.setItem('whatif-consent', JSON.stringify(record)); } catch { /* Current acknowledgement remains valid; ask again next time. */ }
   }
 
   function closeModal() {
     const modal = document.getElementById('consent-modal');
     if (modal) modal.setAttribute('hidden', '');
+    pendingCallback = null;
+    previousFocus?.focus();
   }
 
   function init() {
@@ -96,11 +101,9 @@
         const aiCb = document.getElementById('check-ai');
         if (!privacyCb || !aiCb || !privacyCb.checked || !aiCb.checked) return;
         recordConsent();
+        const callback = pendingCallback;
         closeModal();
-        if (typeof pendingCallback === 'function') {
-          pendingCallback();
-          pendingCallback = null;
-        }
+        if (typeof callback === 'function') callback();
       });
     }
 
@@ -117,6 +120,15 @@
       const modal = document.getElementById('consent-modal');
       if (e.key === 'Escape' && modal && !modal.hasAttribute('hidden')) {
         closeModal();
+      }
+      if (e.key === 'Tab' && modal && !modal.hasAttribute('hidden')) {
+        const focusable = Array.from(modal.querySelectorAll('a[href], button:not([disabled]), input:not([disabled])'));
+        const first = focusable[0], last = focusable[focusable.length - 1];
+        if (e.shiftKey && (document.activeElement === first || document.activeElement === modal)) {
+          e.preventDefault(); last?.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault(); first?.focus();
+        }
       }
     });
 

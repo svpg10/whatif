@@ -3,13 +3,8 @@ window.WhatIf = window.WhatIf || {};
 window.WhatIf.Compare = {
   init() {
     const state = window.WhatIf.state;
-    if (!state.currentPreset) {
-      state.currentPreset = 'hormuz';
-    }
-
-    if (!state.simulationResults) {
-      state.simulationResults = window.WhatIf.Engine.simulate(state.currentPreset, state.sliderValues || {});
-    }
+    if (!window.WhatIf.Scenarios.current()) { window.WhatIf.navigate('analysis'); return; }
+    state.simulationResults = window.WhatIf.Engine.simulate(state.currentPreset, state.sliderValues || {});
 
     this.setupPrioritySliders();
     
@@ -40,6 +35,9 @@ window.WhatIf.Compare = {
     sliders.forEach(slider => {
       const newSlider = slider.cloneNode(true);
       slider.parentNode.replaceChild(newSlider, slider);
+      const type = newSlider.getAttribute('data-priority');
+      newSlider.value = window.WhatIf.state.priorities?.[type] ?? 50;
+      newSlider.closest('.priority-slider-wrap').querySelector('.priority-value').textContent = newSlider.value;
       
       newSlider.addEventListener('input', (e) => {
         const priorityType = e.target.getAttribute('data-priority');
@@ -56,6 +54,7 @@ window.WhatIf.Compare = {
         
         // Live re-ranking under 100ms
         this.recalculate();
+        this.recordToHistory();
       });
     });
   },
@@ -66,8 +65,9 @@ window.WhatIf.Compare = {
     const results = state.simulationResults;
     if (!results || !results.branches) return;
 
-    const p = state.priorities || { cost: 50, risk: 50, speed: 50, impact: 50 };
-    const totalWeight = (p.cost || 0) + (p.risk || 0) + (p.speed || 0) + (p.impact || 0) || 1;
+    let p = window.WhatIf.Scenarios.priorities(state.priorities);
+    if (Object.values(p).every(value => value === 0)) p = { cost: 25, risk: 25, speed: 25, impact: 25 };
+    const totalWeight = p.cost + p.risk + p.speed + p.impact;
 
     const scores = {};
     let winner = 'B';
@@ -76,10 +76,10 @@ window.WhatIf.Compare = {
     ['A', 'B', 'C'].forEach(branch => {
       const raw = results.branches[branch].rawScores;
       let finalScore = (
-        (raw.costScore * (p.cost || 50)) +
-        (raw.riskScore * (p.risk || 50)) +
-        (raw.speedScore * (p.speed || 50)) +
-        (raw.impactScore * (p.impact || 50))
+        (raw.costScore * p.cost) +
+        (raw.riskScore * p.risk) +
+        (raw.speedScore * p.speed) +
+        (raw.impactScore * p.impact)
       ) / totalWeight;
       
       scores[branch] = Math.max(0, Math.min(100, Math.round(finalScore)));
@@ -91,6 +91,7 @@ window.WhatIf.Compare = {
 
     this.lastWinner = winner;
     this.lastMaxScore = maxScore;
+    this.lastScores = scores;
 
     this.updateTable(scores, winner, results);
     this.updateVerdict(winner, maxScore, results);
@@ -106,22 +107,22 @@ window.WhatIf.Compare = {
     const tbody = document.getElementById('compare-tbody');
     if (!tbody) return;
 
-    let html = `<tr><td>Overall Score</td>`;
+    let html = `<tr><th scope="row">Overall Score</th>`;
     ['A', 'B', 'C'].forEach(b => {
-      const isWinner = b === winner ? 'score-cell winner text-gold' : 'score-cell';
+      const isWinner = scores[b] === scores[winner] ? 'score-cell winner text-gold' : 'score-cell';
       html += `<td class="${isWinner}" style="font-weight:700;">${scores[b]}</td>`;
     });
     html += `</tr>`;
 
     const metrics = [
-      { key: 'costScore', label: 'Fiscal Cost Score' },
-      { key: 'riskScore', label: 'Public Safety Score' },
-      { key: 'speedScore', label: 'Recovery Speed' },
-      { key: 'impactScore', label: 'Economic Impact Score' }
+      { key: 'costScore', label: 'Cost efficiency' },
+      { key: 'riskScore', label: 'Safety' },
+      { key: 'speedScore', label: 'Delivery speed' },
+      { key: 'impactScore', label: 'Impact' }
     ];
 
     metrics.forEach(m => {
-      html += `<tr><td>${m.label}</td>`;
+      html += `<tr><th scope="row">${m.label}</th>`;
       ['A', 'B', 'C'].forEach(b => {
         const val = results.branches[b].rawScores[m.key];
         const highlight = b === winner ? 'style="color:var(--star-white); font-weight:600;"' : '';
@@ -138,26 +139,16 @@ window.WhatIf.Compare = {
     if (!textEl) return;
     
     const state = window.WhatIf.state;
-    const duration = (state.sliderValues && state.sliderValues.duration) !== undefined ? state.sliderValues.duration : 30;
-    const preset = window.WhatIf.Presets[state.currentPreset] || window.WhatIf.Presets.hormuz;
-    const branchInfo = preset.branches ? preset.branches[winner] : { name: `Branch ${winner}` };
-
-    if (state.currentPreset === 'hormuz' || !state.currentPreset) {
-      if (duration >= 60) {
-        textEl.innerHTML = `<strong>Under a ${duration}-day closure, Timeline ${winner} (${branchInfo.name}) leads with ${score}/100.</strong> Reserves run out around day 41, so demand-side measures become the only lever that holds. Timeline B fails as prolonged disruption exhausts national stockpiles.`;
-        return;
-      } else {
-        textEl.innerHTML = `<strong>Under a ${duration}-day closure, Timeline ${winner} (${branchInfo.name}) leads with ${score}/100.</strong> Reserves cover the gap and prices stay contained, but the buffer is nearly spent by day 30. Timeline C is the closest alternative if prolonged disruption is expected.`;
-        return;
-      }
-    }
-
+    const preset = window.WhatIf.Scenarios.current();
+    const branchInfo = preset.branches[winner];
     const branchData = results.branches[winner];
-    const benefit = branchData.benefits ? branchData.benefits[0] : 'delivers optimal balance';
-    const risk = branchData.risks ? branchData.risks[0] : 'requires careful execution';
-    const alt = winner === 'A' ? 'B' : (winner === 'B' ? 'C' : 'B');
-
-    textEl.innerHTML = `<strong>Under your priorities, Timeline ${winner} (${branchInfo.name}) leads with ${score}/100.</strong> It ${benefit.toLowerCase()}, but ${risk.toLowerCase()}. Timeline ${alt} is the closest alternative if priorities shift.`;
+    const alternatives = ['A', 'B', 'C'].filter(key => key !== winner).sort((a, b) => this.lastScores[b] - this.lastScores[a]);
+    const ties = ['A', 'B', 'C'].filter(key => this.lastScores[key] === score);
+    const headline = ties.length > 1 ? `Timelines ${ties.join(' and ')} tie at ${score}/100.` :
+      `Timeline ${winner} (${branchInfo.name}) leads with ${score}/100 under your priorities.`;
+    textEl.textContent = headline + ` Benefit: ${branchData.benefits[0]} Risk: ${branchData.risks[0]} ` +
+      `Timeline ${alternatives[0]} is the closest alternative. Scores are illustrative, not probabilities or forecasts.` +
+      (Object.values(window.WhatIf.Scenarios.priorities(state.priorities)).every(n => n === 0) ? ' All priorities are zero, so equal weights are used.' : '');
   },
 
   updateDetails(results) {
@@ -165,37 +156,45 @@ window.WhatIf.Compare = {
     if (!container) return;
     
     const state = window.WhatIf.state;
-    const preset = window.WhatIf.Presets[state.currentPreset] || window.WhatIf.Presets.hormuz;
+    const preset = window.WhatIf.Scenarios.current();
 
+    const e = window.WhatIf.Scenarios.escapeHTML;
+    const hadDetails = container.dataset.runId === state.runId && Boolean(container.querySelector('details'));
+    const opened = new Set(Array.from(container.querySelectorAll('details[open]')).map(node => node.dataset.branch));
+    container.dataset.runId = state.runId;
     container.innerHTML = '';
     ['A', 'B', 'C'].forEach(b => {
       const bInfo = preset.branches ? preset.branches[b] : { name: `Timeline ${b}`, shape: '●', strategy: '' };
       const bData = results.branches[b];
 
-      const div = document.createElement('div');
+      const div = document.createElement('details');
       div.className = 'compare-branch-detail';
+      div.dataset.branch = b;
+      div.open = hadDetails ? opened.has(b) : b === this.lastWinner;
       div.innerHTML = `
-        <div class="detail-title" style="color:var(--branch-${b.toLowerCase()});">
-          <span>${bInfo.shape}</span> Timeline ${b}: ${bInfo.name}
-        </div>
-        <div style="font-size:0.8rem; color:var(--mist); margin-bottom:12px;">${bInfo.strategy}</div>
+        <summary><span class="detail-title" style="color:var(--branch-${b.toLowerCase()});">
+          <span>${bInfo.shape}</span> Timeline ${b}: ${e(bInfo.name)}
+        </span></summary>
+        <div class="ui-detail-body">
+        <p class="ui-detail-strategy">${e(bInfo.strategy)}</p>
         <div class="detail-section">
           <div class="detail-section-title">Benefits</div>
           <ul class="detail-list benefits">
-            ${(bData.benefits || []).map(item => `<li>${item}</li>`).join('')}
+            ${(bData.benefits || []).map(item => `<li>${e(item)}</li>`).join('')}
           </ul>
         </div>
         <div class="detail-section">
           <div class="detail-section-title">Risks</div>
           <ul class="detail-list risks">
-            ${(bData.risks || []).map(item => `<li>${item}</li>`).join('')}
+            ${(bData.risks || []).map(item => `<li>${e(item)}</li>`).join('')}
           </ul>
         </div>
         <div class="detail-section">
           <div class="detail-section-title">Trade-offs</div>
           <ul class="detail-list tradeoffs">
-            ${(bData.tradeoffs || []).map(item => `<li>${item}</li>`).join('')}
+            ${(bData.tradeoffs || []).map(item => `<li>${e(item)}</li>`).join('')}
           </ul>
+        </div>
         </div>
       `;
       container.appendChild(div);
@@ -204,7 +203,7 @@ window.WhatIf.Compare = {
 
   exportSummary() {
     const state = window.WhatIf.state;
-    const preset = window.WhatIf.Presets[state.currentPreset] || window.WhatIf.Presets.hormuz;
+    const preset = window.WhatIf.Scenarios.current();
     const verdict = document.getElementById('verdict-text')?.textContent || '';
     
     let content = `WHAT IF? — Future Decision Simulator\n`;
@@ -217,6 +216,7 @@ window.WhatIf.Compare = {
     for (const [k, v] of Object.entries(state.sliderValues || {})) {
       content += `- ${k}: ${v}\n`;
     }
+    if (preset.assumptions) content += `\nASSUMPTIONS:\n${preset.assumptions.join('\n')}\n`;
     content += `\nPRIORITIES:\n`;
     for (const [k, v] of Object.entries(state.priorities || {})) {
       content += `- ${k}: ${v}%\n`;
@@ -238,12 +238,12 @@ window.WhatIf.Compare = {
   recordToHistory() {
     if (window.WhatIf.History && window.WhatIf.History.record) {
       const state = window.WhatIf.state;
-      const presetKey = state.currentPreset || 'hormuz';
-      const preset = window.WhatIf.Presets[presetKey] || window.WhatIf.Presets.hormuz;
+      const presetKey = state.currentPreset;
+      const preset = window.WhatIf.Scenarios.current();
       const winner = this.lastWinner || 'B';
       const branchInfo = preset.branches ? preset.branches[winner] : { name: `Branch ${winner}` };
       const textEl = document.getElementById('verdict-text');
-      const verdict = textEl ? textEl.innerText : 'Simulation evaluated across all timeline branches.';
+      const verdict = textEl ? textEl.textContent : 'Simulation evaluated across all timeline branches.';
 
       window.WhatIf.History.record({
         prompt: state.decision || preset.decision,
@@ -251,7 +251,7 @@ window.WhatIf.Compare = {
         presetTitle: preset.title,
         sector: preset.title ? `SECTOR · ${preset.title.toUpperCase()}` : 'ACTIVE TIMELINE SECTOR',
         winnerBranch: `Branch ${winner} (${branchInfo.name})`,
-        score: `${this.lastMaxScore || 78}/100`,
+        score: `${this.lastMaxScore ?? 0}/100`,
         verdict: verdict
       });
     }
